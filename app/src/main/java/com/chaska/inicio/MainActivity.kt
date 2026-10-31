@@ -930,7 +930,7 @@ class MainActivity : Activity() {
         nueva("pordefecto", "Launcher por defecto", acc = sw) { cambiarPorDefecto(!esPorDefecto()) }
 
         nueva("copia", "Copia de ajustes", "Guardar o recuperar  ›") { elegirCopia() }
-        panel.addView(nota("Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName}"))
+        panel.addView(nota("Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName} · Desarrollado por ChasKa · Licencia GPL v3"))
 
         val dl = Vidrio.dialogo(this, panel, aj, Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, dp(20),
             resources.displayMetrics.heightPixels - dp(40))

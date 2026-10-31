@@ -6,3 +6,13 @@ build/
 .DS_Store
 captures/
 .kotlin/
+
+# Firma del APK: NUNCA a GitHub
+/Key
+*.jks
+*.keystore
+*.p12
+keystore.properties
+/app/release/
+*.apk
+*.aab

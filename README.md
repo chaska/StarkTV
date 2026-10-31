@@ -55,3 +55,15 @@ adb shell cmd package set-home-activity com.google.android.tvlauncher/.MainActiv
 ## Compilar
 
 Android Studio con el SDK 35. Desde la terminal: `gradlew.bat assembleRelease` (el release va firmado con la clave de depuración para poder instalarlo por adb).
+
+## Autor y licencia
+
+Desarrollado por **ChasKa**.
+
+Stark TV es software libre: puedes redistribuirlo y modificarlo según los términos de la
+**Licencia Pública General de GNU, versión 3** (GPL-3.0), publicada por la Free Software Foundation.
+Se distribuye SIN NINGUNA GARANTÍA. El texto completo está en [`LICENSE`](LICENSE).
+
+Incluye componentes de terceros con licencias compatibles:
+- Tipografías de Google Fonts: SIL Open Font License 1.1 (`app/src/main/assets/fuentes/licencias`).
+- [dadb](https://github.com/mobile-dev-inc/dadb): Apache License 2.0.
