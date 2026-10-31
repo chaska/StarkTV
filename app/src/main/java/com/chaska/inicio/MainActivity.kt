@@ -1039,11 +1039,12 @@ class MainActivity : Activity() {
         val sel = aj.colorSel
         val panel = Vidrio.panel(this, "Recibir fondos", dp(460))
         val estado = nota("Esperando archivos…")
-        val r = Recibidor(this) { e ->
+        val r = Recibidor(this, { aj.fondo }) { e ->
             when (e) {
                 is Recibidor.Evento.Recibido -> estado.text = "Recibido: ${e.nombre}. Ya está en la lista de fondos."
                 is Recibidor.Evento.Poner -> { aj.fondo = e.clave; fondo.mostrar(e.clave); estado.text = "Puesto de fondo: ${nombreFondo(e.clave)}" }
                 is Recibidor.Evento.Borrado -> if (aj.fondo == e.clave) { aj.fondo = ""; fondo.mostrar("") }
+                is Recibidor.Evento.Renombrado -> if (aj.fondo == e.antes) { aj.fondo = e.ahora; fondo.mostrar(e.ahora) }
             }
         }
         val dir = r.direccion

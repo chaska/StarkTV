@@ -21,11 +21,12 @@ import kotlin.concurrent.thread
  * lleva en la dirección el número de 4 cifras que sale en la TV. Guarda en files/fondos
  * (no hace falta permiso de almacenamiento); un .zip con index.html se descomprime en su carpeta.
  */
-class Recibidor(private val ctx: Context, private val alCambiar: (Evento) -> Unit) {
+class Recibidor(private val ctx: Context, private val actual: () -> String, private val alCambiar: (Evento) -> Unit) {
     sealed class Evento {
         class Recibido(val nombre: String) : Evento()
         class Poner(val clave: String) : Evento()
         class Borrado(val clave: String) : Evento()
+        class Renombrado(val antes: String, val ahora: String) : Evento()
     }
 
     val codigo = (1000..9999).random().toString()
@@ -84,6 +85,7 @@ class Recibidor(private val ctx: Context, private val alCambiar: (Evento) -> Uni
             "POST /borrar" -> conNombre(sal, q["nombre"]) { f ->
                 val k = clave(f); f.deleteRecursively(); avisar(Evento.Borrado(k)); "ok"
             }
+            "POST /renombrar" -> renombrar(sal, q["nombre"], q["nuevo"])
             else -> responder(sal, 404, "text/plain", "No existe")
         }
     }
@@ -97,6 +99,23 @@ class Recibidor(private val ctx: Context, private val alCambiar: (Evento) -> Uni
         val f = nombre?.let { limpio(it) }?.let { File(carpeta(), it) }
         if (f == null || !f.exists()) return responder(sal, 404, "text/plain; charset=utf-8", "No está")
         responder(sal, 200, "text/plain", accion(f))
+    }
+
+    /** Cambia el nombre; un archivo conserva su extensión (si no, dejaría de saberse qué es). */
+    private fun renombrar(sal: OutputStream, nombre: String?, nuevo: String?) {
+        val f = nombre?.let { limpio(it) }?.let { File(carpeta(), it) }
+        if (f == null || !f.exists()) return responder(sal, 404, "text/plain; charset=utf-8", "No está")
+        var n = nuevo?.let { limpio(it) } ?: return responder(sal, 400, "text/plain; charset=utf-8", "Nombre no válido")
+        if (f.isFile) {
+            val ext = f.name.substringAfterLast('.', "")
+            if (!n.endsWith(".$ext", ignoreCase = true)) n = "${n.substringBeforeLast('.').ifEmpty { n }}.$ext"
+        }
+        val destino = File(carpeta(), n)
+        if (destino.exists()) return responder(sal, 409, "text/plain; charset=utf-8", "Ya hay uno con ese nombre")
+        val antes = clave(f)
+        if (!f.renameTo(destino)) return responder(sal, 400, "text/plain; charset=utf-8", "No se pudo renombrar")
+        avisar(Evento.Renombrado(antes, clave(destino)))
+        responder(sal, 200, "text/plain", destino.name)
     }
 
     private fun subir(ent: InputStream, sal: OutputStream, nombre: String?, largo: Long) {
@@ -140,13 +159,16 @@ class Recibidor(private val ctx: Context, private val alCambiar: (Evento) -> Uni
         return dest
     }
 
-    private fun lista(): String = carpeta().listFiles().orEmpty()
+    private fun lista(): String {
+        val puesto = actual()
+        return carpeta().listFiles().orEmpty()
         .filter { !it.name.startsWith(".") }
         .sortedBy { it.name.lowercase() }
         .joinToString(",", "[", "]") { f ->
             val tam = if (f.isDirectory) f.walkTopDown().filter { it.isFile }.sumOf { it.length() } else f.length()
-            "{\"nombre\":\"${json(f.name)}\",\"tam\":$tam}"
+            "{\"nombre\":\"${json(f.name)}\",\"tam\":$tam,\"puesto\":${clave(f) == puesto}}"
         }
+    }
 
     private fun avisar(e: Evento) = principal.post { alCambiar(e) }
 
@@ -226,7 +248,9 @@ class Recibidor(private val ctx: Context, private val alCambiar: (Evento) -> Uni
   li small { color: #7d869b; display: block; }
   button { font: inherit; border: 0; border-radius: 10px; padding: 8px 12px; cursor: pointer; }
   .poner { background: #f2a93b; color: #1b1203; }
-  .borrar { background: #2a3044; color: #e8ecf5; }
+  .borrar, .renombrar { background: #2a3044; color: #e8ecf5; }
+  .puesto { color: #f2a93b; font-size: 13px; font-weight: 600; }
+  @media (max-width: 480px) { li { flex-wrap: wrap; } li span { flex-basis: 100%; } }
 </style></head><body><main>
 <h1>Fondos para Stark TV</h1>
 <p>Imágenes (webp, jpg, png, gif), vídeos (mp4, webm, mkv) o HTML5. Un HTML5 con imágenes propias, en un .zip con su index.html.</p>
@@ -268,11 +292,19 @@ async function cargar() {
   for (const f of l) {
     const li = document.createElement('li'), s = document.createElement('span');
     s.textContent = f.nombre; const sm = document.createElement('small'); sm.textContent = mb(f.tam); s.appendChild(sm);
+    if (f.puesto) { const pu = document.createElement('small'); pu.className = 'puesto'; pu.textContent = 'Puesto de fondo ahora'; s.appendChild(pu); }
     const p = document.createElement('button'); p.className = 'poner'; p.textContent = 'Poner de fondo';
-    p.onclick = async function () { await pedir('POST', 'poner?nombre=' + encodeURIComponent(f.nombre)); est.textContent = 'Puesto de fondo: ' + f.nombre; };
+    p.onclick = async function () { await pedir('POST', 'poner?nombre=' + encodeURIComponent(f.nombre)); est.textContent = 'Puesto de fondo: ' + f.nombre; setTimeout(cargar, 300); };
+    const r = document.createElement('button'); r.className = 'renombrar'; r.textContent = 'Renombrar';
+    r.onclick = async function () {
+      const n = prompt('Nuevo nombre para ' + f.nombre, f.nombre); if (!n || n === f.nombre) return;
+      try { const final = await pedir('POST', 'renombrar?nombre=' + encodeURIComponent(f.nombre) + '&nuevo=' + encodeURIComponent(n)); est.textContent = 'Renombrado: ' + final; }
+      catch (e) { est.textContent = e; }
+      cargar();
+    };
     const b = document.createElement('button'); b.className = 'borrar'; b.textContent = 'Borrar';
     b.onclick = async function () { if (confirm('¿Borrar ' + f.nombre + ' de la TV?')) { await pedir('POST', 'borrar?nombre=' + encodeURIComponent(f.nombre)); cargar(); } };
-    li.append(s, p, b); ul.appendChild(li);
+    li.append(s, p, r, b); ul.appendChild(li);
   }
 }
 document.getElementById('archivos').onchange = function (e) { subir(e.target.files); e.target.value = ''; };
