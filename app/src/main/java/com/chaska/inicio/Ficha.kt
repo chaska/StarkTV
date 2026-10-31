@@ -169,7 +169,10 @@ class Ficha(
 
     private fun aplicarFoco() {
         val activo = isFocused || levantada
-        val s = if (levantada) 1.16f else if (activo) 1.13f else 1f
+        // La casa y el PAP no crecen enteros: crece solo su dibujo (en onDraw), así el nombre no se mueve de la fila.
+        val soloIcono = (esPap || esCasa) && !levantada
+        val s = if (levantada) 1.16f else if (activo && !soloIcono) 1.13f else 1f
+        if (soloIcono) invalidate()
         animate()
             .scaleX(s).scaleY(s)
             // La casa y el PAP son solo un icono: crecen en su sitio para no salirse de la línea del dock.
@@ -223,9 +226,11 @@ class Ficha(
         val activo = isFocused || levantada
         if (esPap || esCasa) {
             // Solo el dibujo, tan grande como la ficha; el nombre («PAP», «Dock») va debajo si está activado.
-            val an = alto * iconoPap.intrinsicWidth / iconoPap.intrinsicHeight.coerceAtLeast(1)
+            // Seleccionado, el dibujo crece un 15 % hacia arriba desde la base de la fila.
+            val h = alto * if (activo) 1.15f else 1f
+            val an = h * iconoPap.intrinsicWidth / iconoPap.intrinsicHeight.coerceAtLeast(1)
             val x = r.centerX() - an / 2
-            iconoPap.setBounds(x.toInt(), r.top.toInt(), (x + an).toInt(), r.bottom.toInt())
+            iconoPap.setBounds(x.toInt(), (r.bottom - h).toInt(), (x + an).toInt(), r.bottom.toInt())
             iconoPap.alpha = if (activo) 255 else 210
             iconoPap.draw(c)
             if (conNombre) c.drawText(nombre, r.centerX(), r.bottom + 17f * d, pNombre)
