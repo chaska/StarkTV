@@ -1,7 +1,7 @@
 # Inicio TV
 
 Launcher ligero para Android TV (probado para la Thomson 2K, Android TV 14, 1 GB de RAM).
-Sin anuncios, sin librerías: el APK de release pesa unos 60 KB.
+Sin anuncios y sin librerías: el APK de release pesa 1,2 MB, casi todo por las 10 fuentes.
 
 - Carrusel con **Favoritos** primero (cuadrícula 3×2, máximo 6) y luego todas las apps.
 - **OK mantenido** sobre una app: añadir/quitar de favoritos, **mover** (la ficha se levanta y viaja con ◀ ▶; OK la suelta), ocultar e información.
