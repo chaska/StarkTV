@@ -124,6 +124,11 @@ class MainActivity : Activity() {
         super.onStop()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (aj.papActivo && dialogo?.isShowing != true) contenido.post { panelPap() }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // Pulsar Inicio estando ya aquí: cierra todo y vuelve al principio del dock.
@@ -447,7 +452,7 @@ class MainActivity : Activity() {
 
     private fun abrir(p: String) {
         val i = Apps.intentDe(this, p) ?: return avisar("No se puede abrir")
-        try { startActivity(i) } catch (e: Exception) { avisar("No se puede abrir") }
+        try { startActivity(i, Pap.pantallaCompleta()) } catch (e: Exception) { avisar("No se puede abrir") }
     }
 
     private fun abrirTdt() {
@@ -732,6 +737,17 @@ class MainActivity : Activity() {
         interruptor("cristal", "Cristal difuminado", aj.cristal) { aj.cristal = it }
         interruptor("animaciones", "Animaciones de luz", aj.animaciones) { aj.animaciones = it; pintarCarrusel(true) }
 
+        seccion("PAP · dos cosas a la vez")
+        opciones("papreparto", "Reparto", Pap.REPARTOS, aj.papReparto) { i -> aj.papReparto = i }
+        val partes = { r: Int -> if (r == 3) "Arriba" to "Abajo" else "Izquierda" to "Derecha" }
+        nueva("papizq", partes(aj.papReparto).first, "${Pap.nombre(this, aj.papIzq)}  ›") { f ->
+            elegirParte(aj.papIzq) { c -> aj.papIzq = c; f.valor.text = "${Pap.nombre(this, c)}  ›" }
+        }
+        nueva("papder", partes(aj.papReparto).second, "${Pap.nombre(this, aj.papDer)}  ›") { f ->
+            elegirParte(aj.papDer) { c -> aj.papDer = c; f.valor.text = "${Pap.nombre(this, c)}  ›" }
+        }
+        nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.lanzar(this, aj) }
+
         seccion("Sistema")
         val sw = Interruptor(this, esPorDefecto())
         swPorDefecto = sw
@@ -777,6 +793,30 @@ class MainActivity : Activity() {
     private fun abrirElegirInicio() {
         try { startActivity(Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         catch (e: Exception) { avisar("Esta TV no deja elegir el inicio") }
+    }
+
+    private fun elegirParte(actual: String, listo: (String) -> Unit) {
+        val ops = Pap.opciones(this)
+        elegir("Qué poner", ops.map { it.second }, actual = ops.indexOfFirst { it.first == actual }) { i -> listo(ops[i].first) }
+    }
+
+    /** Con el PAP en marcha, Inicio enseña esto en vez de quedarse en el launcher. */
+    private fun panelPap() {
+        val sel = aj.colorSel
+        val panel = Vidrio.panel(this, "PAP", dp(320))
+        val g = grupo()
+        val (n1, n2) = if (aj.papReparto == 3) "arriba" to "abajo" else "izquierda" to "derecha"
+        fun op(t: String, accion: () -> Unit) = Fila(this, t, sel).apply {
+            valor.text = "›"
+            setOnClickListener { dialogo?.dismiss(); accion() }
+        }.also { anadirAGrupo(g, it) }
+        val primera = op("Manejar $n1 · ${Pap.nombre(this, aj.papIzq)}") { Pap.lanzar(this, aj, 1) }
+        op("Manejar $n2 · ${Pap.nombre(this, aj.papDer)}") { Pap.lanzar(this, aj, 2) }
+        op("Intercambiar lados") { aj.papIzq = aj.papDer.also { aj.papDer = aj.papIzq }; Pap.lanzar(this, aj, 1) }
+        op("Salir del PAP") { Pap.salir(aj) }
+        panel.addView(g, filaLp())
+        dialogo = Vidrio.dialogo(this, panel, aj)
+        primera.requestFocus()
     }
 
     /** Grupo de filas con fondo redondeado, como las tarjetas de ajustes del iPhone. */

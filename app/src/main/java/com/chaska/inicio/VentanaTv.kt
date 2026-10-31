@@ -95,10 +95,10 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         })
     }
 
-    fun encender() {
+    /** [fuente]: 0 Antena, 1-3 HDMI, 4 AV. Por defecto, la de la ventanita del inicio. */
+    fun encender(fuente: Int = prefs.getInt("tv_fuente", 0), conSonido: Boolean = prefs.getBoolean("tv_sonido", false)) {
         val tim = context.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
-        sonido(prefs.getBoolean("tv_sonido", false))
-        val fuente = prefs.getInt("tv_fuente", 0)
+        sonido(conSonido)
         if (fuente > 0) { externa(tim, fuente); return }
         sintonizadores = tim?.tvInputList?.filter { it.type == TvInputInfo.TYPE_TUNER }?.map { it.id }?.sorted() ?: emptyList()
         // El principal primero (HW0).

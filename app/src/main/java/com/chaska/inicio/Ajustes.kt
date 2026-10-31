@@ -25,6 +25,10 @@ class Ajustes(ctx: Context) {
     var tituloDock by booleano("titulo_dock", true)
     var tvSonido by booleano("tv_sonido", false)
     var tvFuente by entero("tv_fuente", 0)      // índice de FUENTES_TV
+    var papReparto by entero("pap_reparto", 0)   // índice de Pap.REPARTOS
+    var papIzq by texto("pap_izq", "tv:0")       // "tv:N" o paquete de la app
+    var papDer by texto("pap_der", "com.google.android.youtube.tv")
+    var papActivo by booleano("pap_activo", false)
     var relojPos by entero("reloj_pos", 0)      // 0 automático (lado libre), 1 izquierda, 2 derecha
     var rotarMin by entero("rotar_min", 0)      // 0 = no cambiar el fondo solo
     var salvaMin by entero("salva_min", 10)     // 0 = sin salvapantallas
