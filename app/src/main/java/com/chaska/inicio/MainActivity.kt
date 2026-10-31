@@ -525,8 +525,15 @@ class MainActivity : Activity() {
                 if (fila.childCount > 0) { if (v) topMargin = sep else marginStart = sep }
             })
         }
-        if (aj.dockOculto) anadir(nuevaFicha(Ficha.CASA).apply { setOnClickListener { alternarDock() } })
-        if (aj.favoritosDock) anadir(nuevaFicha(null).apply { setOnClickListener { abrirFavoritos() } })
+        // OK mantenido sobre la casa o sobre Favoritos: elegir dónde va el dock.
+        if (aj.dockOculto) anadir(nuevaFicha(Ficha.CASA).apply {
+            setOnClickListener { alternarDock() }
+            setOnLongClickListener { elegirPosicionDock(); true }
+        })
+        if (aj.favoritosDock) anadir(nuevaFicha(null).apply {
+            setOnClickListener { abrirFavoritos() }
+            setOnLongClickListener { elegirPosicionDock(); true }
+        })
         if (aj.papDock) anadir(nuevaFicha(Ficha.PAP).apply { setOnClickListener { Pap.empezar(this@MainActivity) } })
         for (p in orden) {
             val f = nuevaFicha(p)
@@ -597,6 +604,7 @@ class MainActivity : Activity() {
             pintarCarrusel(forzar = true)
             avisar("Oculta. Se recupera en Ajustes del launcher")
         }
+        op("Posición del dock", Icono.Tipo.CUADRICULA) { elegirPosicionDock() }
         op("Información de la app", Icono.Tipo.INFO) {
             try {
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", p, null))
@@ -666,6 +674,13 @@ class MainActivity : Activity() {
         aviso.visibility = View.GONE
         lista.guardarOrden(fichas().mapNotNull { it.paquete }.filter { it != Ficha.PAP && it != Ficha.CASA })
         firma = firmaActual()
+    }
+
+    /** Las mismas posiciones que Ajustes › Dock › Posición; el dock se mueve al momento. */
+    private fun elegirPosicionDock() {
+        elegir("Posición del dock", Ajustes.POSICIONES, actual = aj.dock) { i ->
+            aj.dock = i; montarDock(); pintarCarrusel(true)
+        }
     }
 
     /** La casa (primera ficha) enseña el resto del dock o lo vuelve a esconder. */
