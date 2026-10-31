@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -15,11 +17,29 @@ android {
         versionName = "0.9.39"
     }
 
+    // Firma propia: si existe keystore.properties en la raíz (NUNCA va a GitHub, está en .gitignore),
+    // ▶ Run y la release se firman con la misma clave y se pueden instalar una encima de otra.
+    // Sin ese archivo, ▶ Run usa la clave de pruebas de Android Studio y la release va sin firmar.
+    val datosFirma = rootProject.file("keystore.properties").takeIf { it.isFile }?.let { f ->
+        Properties().apply { f.inputStream().use { load(it) } }
+    }
+    val firmaPropia = datosFirma?.let { d: Properties ->
+        signingConfigs.create("propia") {
+            storeFile = rootProject.file(d.getProperty("storeFile"))
+            storePassword = d.getProperty("storePassword")
+            keyAlias = d.getProperty("keyAlias")
+            keyPassword = d.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
+        debug {
+            if (firmaPropia != null) signingConfig = firmaPropia
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            // Sin firma aquí: la release se firma con la clave propia de ChasKa (Generate Signed APK), que no está en el repositorio.
+            if (firmaPropia != null) signingConfig = firmaPropia
         }
     }
 
