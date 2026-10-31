@@ -27,6 +27,8 @@ class Ajustes(ctx: Context) {
     var oscuridad by entero("oscuridad_menus", 40) // % que los colores de los paneles se llevan hacia el negro (0-90)
     var verVersion by booleano("ver_version", true) // «Stark TV 0.9.x» abajo a la derecha del inicio  // nombre del canal o de la fuente sobre la imagen (ventanita y PAP)
     var tituloDock by booleano("titulo_dock", true)
+    var favoritosDock by booleano("favoritos_dock", true) // ficha «Favoritos» al principio del dock
+    var dockOculto by booleano("dock_oculto", false)      // el dock solo sale al pulsar la casa
     var tvSonido by booleano("tv_sonido", false)
     var tvFuente by entero("tv_fuente", 0)      // índice de FUENTES_TV
     var tvPos by entero("tv_pos", 0)            // ventanita de TV: 0 automática, 1-4 según POSICIONES_TV

@@ -46,6 +46,8 @@ class MainActivity : Activity() {
     private lateinit var contenido: FrameLayout
     private lateinit var botonAjustes: TextView
     private lateinit var botonPap: TextView
+    /** Con «Ocultar el dock», si ahora mismo se ven las fichas (la casa siempre se ve). */
+    private var dockAbierto = false
     private lateinit var hora: TextClock
     private lateinit var horaSalva: TextClock
     private lateinit var version: TextView
@@ -200,7 +202,10 @@ class MainActivity : Activity() {
             if (e.action == KeyEvent.ACTION_DOWN) ventana.cambiarCanal(if (e.keyCode == KeyEvent.KEYCODE_CHANNEL_UP) 1 else -1)
             return true
         }
-        if (e.keyCode == KeyEvent.KEYCODE_BACK) return true
+        if (e.keyCode == KeyEvent.KEYCODE_BACK) {
+            if (aj.dockOculto && dockAbierto && e.action == KeyEvent.ACTION_UP) alternarDock()
+            return true
+        }
         return super.dispatchKeyEvent(e)
     }
 
@@ -492,14 +497,15 @@ class MainActivity : Activity() {
         botonAjustes.background = null
         botonPap.background = null
         botonPap.visibility = if (aj.papBoton) View.VISIBLE else View.GONE
+
         // PAP o PIP según el modo; con el PAP en marcha, el botón brilla del color de la selección.
         botonPap.setCompoundDrawablesRelative(medida(dibujoPap(), 36), null, null, null)
         ventana.visibility = if (aj.tvVentana) View.VISIBLE else View.GONE
-        titulo.visibility = if (aj.tituloDock) View.VISIBLE else View.GONE
+        titulo.visibility = if (aj.tituloDock && (!aj.dockOculto || dockAbierto)) View.VISIBLE else View.GONE
         version.visibility = if (aj.verVersion) View.VISIBLE else View.GONE
     }
 
-    private fun firmaActual() = listOf(lista.orden(), lista.favoritas(), aj.tamano, aj.nombres, aj.reflejo, aj.animaciones, aj.dock, aj.papDock).toString()
+    private fun firmaActual() = listOf(lista.orden(), lista.favoritas(), aj.tamano, aj.nombres, aj.reflejo, aj.animaciones, aj.dock, aj.papDock, aj.favoritosDock, aj.dockOculto).toString()
 
     /** Rehace el dock solo si algo cambió (orden, favoritas, tamaño…): volver al inicio es instantáneo. */
     private fun pintarCarrusel(forzar: Boolean = false) {
@@ -519,7 +525,8 @@ class MainActivity : Activity() {
                 if (fila.childCount > 0) { if (v) topMargin = sep else marginStart = sep }
             })
         }
-        anadir(nuevaFicha(null).apply { setOnClickListener { abrirFavoritos() } })
+        if (aj.dockOculto) anadir(nuevaFicha(Ficha.CASA).apply { setOnClickListener { alternarDock() } })
+        if (aj.favoritosDock) anadir(nuevaFicha(null).apply { setOnClickListener { abrirFavoritos() } })
         if (aj.papDock) anadir(nuevaFicha(Ficha.PAP).apply { setOnClickListener { Pap.empezar(this@MainActivity) } })
         for (p in orden) {
             val f = nuevaFicha(p)
@@ -529,7 +536,8 @@ class MainActivity : Activity() {
             anadir(f)
         }
         titulo.text = "Todas las apps · ${orden.size}"
-        val objetivo = fichas().firstOrNull { enfocado != null && it.paquete == enfocado } ?: fila.getChildAt(0)
+        verDock()
+        val objetivo = fichas().firstOrNull { enfocado != null && it.paquete == enfocado && it.visibility == View.VISIBLE } ?: fila.getChildAt(0)
         objetivo?.requestFocus()
     }
 
@@ -632,10 +640,20 @@ class MainActivity : Activity() {
         val i = fila.indexOfChild(f)
         val j = i + dx
         // Favoritos (y la ficha PAP si está) van fijas al principio.
-        if (j < (if (aj.papDock) 2 else 1) || j >= fila.childCount) return
-        // Todas las fichas tras Favoritos llevan el mismo margen: basta con cambiarla de sitio.
+        val fijas = (if (aj.dockOculto) 1 else 0) + (if (aj.favoritosDock) 1 else 0) + (if (aj.papDock) 1 else 0)
+        if (j < fijas || j >= fila.childCount) return
+        // La primera ficha no lleva margen y las demás sí: se cambia de sitio y se le pasa el margen a quien toque.
+        val lpI = f.layoutParams as LinearLayout.LayoutParams
+        val otra = fila.getChildAt(j)
+        val lpJ = otra.layoutParams as LinearLayout.LayoutParams
+        if (i == 0 || j == 0) {
+            val mI = lpI.marginStart to lpI.topMargin
+            lpI.marginStart = lpJ.marginStart; lpI.topMargin = lpJ.topMargin
+            lpJ.marginStart = mI.first; lpJ.topMargin = mI.second
+            otra.layoutParams = lpJ
+        }
         fila.removeViewAt(i)
-        fila.addView(f, j)
+        fila.addView(f, j, lpI)
         f.requestFocus()
         f.post { apuntarLuz(f, f.color, f.pivotX, f.pivotY) }
     }
@@ -646,8 +664,26 @@ class MainActivity : Activity() {
         f.levantada = false
         fichas().forEach { it.animate().alpha(1f).setDuration(200).start() }
         aviso.visibility = View.GONE
-        lista.guardarOrden(fichas().mapNotNull { it.paquete }.filter { it != Ficha.PAP })
+        lista.guardarOrden(fichas().mapNotNull { it.paquete }.filter { it != Ficha.PAP && it != Ficha.CASA })
         firma = firmaActual()
+    }
+
+    /** La casa (primera ficha) enseña el resto del dock o lo vuelve a esconder. */
+    private fun alternarDock() {
+        dockAbierto = !dockAbierto
+        verDock()
+        fila.getChildAt(0)?.requestFocus()
+    }
+
+    /** Con «Ocultar el dock», las fichas tras la casa solo se ven con el dock abierto; la casa, siempre. */
+    private fun verDock() {
+        val ver = !aj.dockOculto || dockAbierto
+        for (i in 0 until fila.childCount) {
+            val f = fila.getChildAt(i)
+            if ((f as? Ficha)?.paquete == Ficha.CASA) continue
+            f.visibility = if (ver) View.VISIBLE else View.GONE
+        }
+        titulo.visibility = if (aj.tituloDock && ver) View.VISIBLE else View.GONE
     }
 
     private fun abrirFavoritos() {
@@ -833,6 +869,10 @@ class MainActivity : Activity() {
         opciones("dock", "Posición", Ajustes.POSICIONES, aj.dock) { i -> aj.dock = i; montarDock(); pintarCarrusel(true) }
         opciones("tamano", "Tamaño de fichas", Ajustes.TAMANOS, aj.tamano) { i -> aj.tamano = i; pintarCarrusel(true) }
         interruptor("titulo", "Título del dock", aj.tituloDock) { aj.tituloDock = it; aplicar() }
+        interruptor("favdock", "Favoritos en el dock", aj.favoritosDock) { aj.favoritosDock = it; pintarCarrusel(true) }
+        interruptor("dockoculto", "Ocultar el dock (con la casa)", aj.dockOculto) {
+            aj.dockOculto = it; dockAbierto = false; pintarCarrusel(true)
+        }
         interruptor("nombres", "Nombre bajo las apps", aj.nombres) { aj.nombres = it; pintarCarrusel(true) }
         nueva("ocultas", "Apps ocultas", "${lista.ocultas().size}  ›") { f -> elegirOcultas { f.valor.text = "${lista.ocultas().size}  ›" } }
 

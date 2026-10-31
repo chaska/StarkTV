@@ -21,7 +21,8 @@ funcionar lo básico; la ventanita de TV y el PAP dependen de cómo el fabricant
 - **Dock** con las apps en 6 posiciones (abajo, centro, arriba, o vertical a la izquierda, centro o derecha) y 4 tamaños de ficha (micro a grande).
 - **Favoritos** primero (cuadrícula de hasta 6) y luego todas las apps; **OK mantenido** sobre una app: añadir o quitar de favoritos, **mover** (la ficha se levanta y viaja con ◀ ▶), ocultar e información.
 - Fichas con brillo de cristal, sombra, **halo del color de la app** (en proporción al tamaño de la ficha), luz que recorre el borde, destello y reflejo en el suelo. Una luz del color de la app enfocada la sigue por la pantalla.
-- Nombre bajo las apps, título del dock y ficha de PAP en el dock, a elegir.
+- Nombre bajo las apps, título del dock, ficha de Favoritos y ficha de PAP, a elegir.
+- **Ocultar el dock**: solo queda la casa como primera ficha; al pulsarla salen las demás y al volver a pulsarla (o con Atrás) se esconden.
 - El **jog** del mando mueve una sola ficha por giro (se ignoran las repeticiones de menos de 700 ms).
 
 ### Reloj, fecha y tiempo
@@ -120,7 +121,7 @@ Un **HTML5** propio se envía con «Recibir fondos»: un `.html` suelto o un `.z
 ## Primera instalación
 
 ```bash
-adb install -r StarkTV-0.9.34.apk
+adb install -r StarkTV-0.9.36.apk
 adb shell appops set com.chaska.inicio MANAGE_EXTERNAL_STORAGE allow
 adb shell pm grant com.chaska.inicio android.permission.WRITE_SECURE_SETTINGS
 adb shell cmd package set-home-activity com.chaska.inicio/.MainActivity

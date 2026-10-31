@@ -39,7 +39,9 @@ class Ficha(
     private val esFav = paquete == null
     /** Ficha especial que empieza el PAP (ajuste «PAP en el dock»). */
     private val esPap = paquete == PAP
-    private val ancho = ANCHOS[tam.coerceIn(0, 3)] * d * (if (esFav) 0.66f else 1f)
+    /** Ficha especial «casa» (ajuste «Ocultar el dock»): enseña y esconde el resto del dock. */
+    private val esCasa = paquete == CASA
+    private val ancho = ANCHOS[tam.coerceIn(0, 3)] * d * (if (esFav || esCasa) 0.66f else 1f)
     private val alto = ANCHOS[tam.coerceIn(0, 3)] * d * 9f / 16f
     /** El halo va en proporción a la ficha: en micro es pequeño, en grande más amplio (1 = tamaño mediano). */
     private val pad = margen(tam) * d                 // sitio para el halo y para crecer con el foco
@@ -53,12 +55,16 @@ class Ficha(
     private val rGiro = RectF(r).apply { inset(-3f * d, -3f * d) }
     private val camino = Path().apply { addRoundRect(r, radio, radio, Path.Direction.CW) }
 
-    val nombre: String = when { paquete == null -> "Favoritos"; esPap -> "PAP"; else -> Apps.nombre(ctx, paquete) }
-    private val banner: Drawable? = if (esPap) null else paquete?.let { Apps.banner(ctx, it) }
-    private val icono: Drawable? = if (banner == null && !esPap) paquete?.let { Apps.icono(ctx, it) } else null
-    val color: Int = when { esFav -> 0xFFE0A949.toInt(); esPap -> 0xFF3A6FD8.toInt(); else -> colorMedio(banner ?: icono) }
-    private val iconoPap: Drawable = ctx.getDrawable(
-        if (com.chaska.inicio.pap.Pap.esPip(Ajustes(ctx).papReparto)) R.drawable.ic_pip else R.drawable.ic_pap)!!.mutate()
+    val nombre: String = when { paquete == null -> "Favoritos"; esPap -> "PAP"; esCasa -> "Dock"; else -> Apps.nombre(ctx, paquete) }
+    private val banner: Drawable? = if (esPap || esCasa) null else paquete?.let { Apps.banner(ctx, it) }
+    private val icono: Drawable? = if (banner == null && !esPap && !esCasa) paquete?.let { Apps.icono(ctx, it) } else null
+    val color: Int = when { esFav -> 0xFFE0A949.toInt(); esPap -> 0xFF3A6FD8.toInt(); esCasa -> 0xFF2F86FF.toInt(); else -> colorMedio(banner ?: icono) }
+    /** Dibujo de las fichas que son solo un icono (PAP y casa). */
+    private val iconoPap: Drawable = ctx.getDrawable(when {
+        esCasa -> R.drawable.ic_casa
+        com.chaska.inicio.pap.Pap.esPip(Ajustes(ctx).papReparto) -> R.drawable.ic_pip
+        else -> R.drawable.ic_pap
+    })!!.mutate()
 
     var esFavorita = false
         set(v) { field = v; invalidate() }
@@ -166,8 +172,9 @@ class Ficha(
         val s = if (levantada) 1.16f else if (activo) 1.13f else 1f
         animate()
             .scaleX(s).scaleY(s)
-            .translationY(if (levantada) -22f * d else if (activo) -10f * d else 0f)
-            .rotationX(if (levantada) 9f else if (activo) 5f else 0f)
+            // La casa y el PAP son solo un icono: crecen en su sitio para no salirse de la línea del dock.
+            .translationY(if (levantada) -22f * d else if (activo && !esPap && !esCasa) -10f * d else 0f)
+            .rotationX(if (levantada) 9f else if (activo && !esPap && !esCasa) 5f else 0f)
             .rotationY(if (activo) -2.5f * inclinacionActual else 0f)
             .translationZ(if (activo) 12f * d else 0f)
             .setDuration(280)
@@ -214,8 +221,8 @@ class Ficha(
 
     override fun onDraw(c: Canvas) {
         val activo = isFocused || levantada
-        if (esPap) {
-            // Solo el dibujo, tan grande como la ficha; el nombre «PAP» va debajo si está activado.
+        if (esPap || esCasa) {
+            // Solo el dibujo, tan grande como la ficha; el nombre («PAP», «Dock») va debajo si está activado.
             val an = alto * iconoPap.intrinsicWidth / iconoPap.intrinsicHeight.coerceAtLeast(1)
             val x = r.centerX() - an / 2
             iconoPap.setBounds(x.toInt(), r.top.toInt(), (x + an).toInt(), r.bottom.toInt())
@@ -307,6 +314,7 @@ class Ficha(
 
     companion object {
         const val PAP = "stark:pap"
+        const val CASA = "stark:casa"
         val ANCHOS = floatArrayOf(112f, 144f, 176f, 208f)
         /** Margen interno de la ficha (dp) para el halo: en proporción a su tamaño (26 en la mediana). */
         fun margen(tam: Int) = 26f * ANCHOS[tam.coerceIn(0, 3)] / 176f
