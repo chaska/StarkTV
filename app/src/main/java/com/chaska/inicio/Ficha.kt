@@ -96,7 +96,7 @@ class Ficha(
     private val arribaReflejo = r.bottom + 4f * d + altoNombre
     private val pDesvanecer = Paint().apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
-        shader = LinearGradient(0f, arribaReflejo, 0f, arribaReflejo + altoReflejo.coerceAtLeast(1f), 0x47000000, 0, Shader.TileMode.CLAMP)
+        shader = LinearGradient(0f, arribaReflejo, 0f, arribaReflejo + altoReflejo.coerceAtLeast(1f) * .75f, 0x38000000, 0, Shader.TileMode.CLAMP)
     }
     private val pTexto = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = if (esFav) 0xFF2B1A03.toInt() else Color.WHITE
@@ -251,12 +251,13 @@ class Ficha(
     private fun reflejo(c: Canvas) {
         val arriba = arribaReflejo
         val abajo = arriba + altoReflejo
-        val capa = c.saveLayer(0f, arriba, width.toFloat(), abajo, null)
+        // La capa se redondea a píxeles enteros: el borrado cubre de más para que no quede ninguna fila sin difuminar.
+        val capa = c.saveLayer(0f, kotlin.math.floor(arriba), width.toFloat(), kotlin.math.ceil(abajo), null)
         c.save()
         c.scale(1f, -1f, 0f, (r.bottom + arriba) / 2f)
         cuerpo(c)
         c.restore()
-        c.drawRect(0f, arriba, width.toFloat(), abajo, pDesvanecer)
+        c.drawRect(0f, arriba - 2f, width.toFloat(), abajo + 2f, pDesvanecer)
         c.restoreToCount(capa)
     }
 
