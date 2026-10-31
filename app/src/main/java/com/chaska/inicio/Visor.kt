@@ -11,12 +11,19 @@ import android.widget.FrameLayout
  * Suena solo cuando es la mitad que manejas (tiene el foco). CH+/CH− cambian de canal con Antena.
  * Hay dos (izquierda/derecha) con tareas distintas para poder estar abiertos a la vez.
  */
-open class Visor : Activity() {
+open class Visor(private val parte: Int) : Activity() {
     private lateinit var ventana: VentanaTv
+    private val aj by lazy { Ajustes(this) }
+
+    /** Ajuste «Sonido» del PAP. Solo manda en las partes de TV: las apps suenan siempre. */
+    private fun suena(foco: Boolean) = when (aj.papSonido) {
+        1, 2 -> aj.papSonido == parte
+        3 -> true
+        else -> foco
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val aj = Ajustes(this)
         Fuentes.actual = aj.fuente
         ventana = VentanaTv(this, aj.colorSel, aj.p).apply {
             isFocusable = false
@@ -34,7 +41,7 @@ open class Visor : Activity() {
 
     override fun onStart() {
         super.onStart()
-        ventana.encender(intent.getIntExtra(EXTRA_FUENTE, 0), conSonido = hasWindowFocus())
+        ventana.encender(intent.getIntExtra(EXTRA_FUENTE, 0), conSonido = suena(hasWindowFocus()))
     }
 
     override fun onStop() {
@@ -47,10 +54,9 @@ open class Visor : Activity() {
         super.onDestroy()
     }
 
-    /** El sonido sigue a la mitad que manejas. */
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        ventana.sonido(hasFocus)
+        ventana.sonido(suena(hasFocus))
     }
 
     override fun dispatchKeyEvent(e: KeyEvent): Boolean {
@@ -68,5 +74,5 @@ open class Visor : Activity() {
     }
 }
 
-class VisorIzq : Visor()
-class VisorDer : Visor()
+class VisorIzq : Visor(1)
+class VisorDer : Visor(2)

@@ -746,6 +746,8 @@ class MainActivity : Activity() {
         nueva("papder", partes(aj.papReparto).second, "${Pap.nombre(this, aj.papDer)}  ›") { f ->
             elegirParte(aj.papDer) { c -> aj.papDer = c; f.valor.text = "${Pap.nombre(this, c)}  ›" }
         }
+        val sonidos = { r: Int -> if (r == 3) listOf("La que manejas", "Arriba", "Abajo", "Las dos") else listOf("La que manejas", "Izquierda", "Derecha", "Las dos") }
+        opciones("papsonido", "Sonido de la TV", sonidos(aj.papReparto), aj.papSonido) { i -> aj.papSonido = i }
         nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.lanzar(this, aj) }
 
         seccion("Sistema")

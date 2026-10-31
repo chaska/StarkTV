@@ -29,6 +29,7 @@ class Ajustes(ctx: Context) {
     var papIzq by texto("pap_izq", "tv:0")       // "tv:N" o paquete de la app
     var papDer by texto("pap_der", "com.google.android.youtube.tv")
     var papActivo by booleano("pap_activo", false)
+    var papSonido by entero("pap_sonido", 0)     // 0 la que manejas, 1 parte 1, 2 parte 2, 3 las dos
     var relojPos by entero("reloj_pos", 0)      // 0 automático (lado libre), 1 izquierda, 2 derecha
     var rotarMin by entero("rotar_min", 0)      // 0 = no cambiar el fondo solo
     var salvaMin by entero("salva_min", 10)     // 0 = sin salvapantallas
