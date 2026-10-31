@@ -1056,7 +1056,18 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             setPadding(dp(12), dp(10), dp(12), dp(4))
         }.conFuente(medio = true))
-        panel.addView(nota("Imágenes (webp, jpg, png, gif), vídeos (mp4, webm, mkv) o HTML5; un HTML5 con imágenes propias, en un .zip con su index.html. Desde esa página también puedes ponerlos de fondo o borrarlos. Solo funciona mientras esta pantalla esté abierta."))
+        // La clave, nueva cada vez que se abre esta pantalla; la página la pide antes de dejar enviar nada.
+        if (dir != null) {
+            panel.addView(nota("y escribe esta clave:"))
+            panel.addView(TextView(this).apply {
+                text = r.claveTv.chunked(3).joinToString(" ")
+                textSize = 34f
+                letterSpacing = .12f
+                setTextColor(aj.colorSel)
+                setPadding(dp(12), dp(4), dp(12), dp(4))
+            }.conFuente(medio = true))
+        }
+        panel.addView(nota("Imágenes (webp, jpg, png, gif), vídeos (mp4, webm, mkv, mov) o HTML5 (un .zip con su index.html). Las imágenes se guardan en WebP. Desde esa página también puedes renombrarlos, ponerlos de fondo o borrarlos. Solo funciona mientras esta pantalla esté abierta."))
         panel.addView(estado)
         val g = grupo()
         val cerrar = Fila(this, "Cerrar", sel)

@@ -35,6 +35,30 @@ object Saneador {
         }
     }
 
+    private const val LADO_WEBP = 2560          // la TV es 2K: más grande no se ve mejor y ocupa más
+
+    /**
+     * Pasa una imagen fija ya limpia a WebP (y a [LADO_WEBP] px de lado como mucho). Devuelve true si la convirtió;
+     * los GIF y WebP animados, y los WebP que ya son de buen tamaño, se dejan como están.
+     */
+    fun aWebp(f: File, ext: String): Boolean {
+        if (ext !in setOf("jpg", "jpeg", "png", "gif", "webp")) return false
+        val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(f.absolutePath, o)
+        val lado = maxOf(o.outWidth, o.outHeight)
+        if (ext == "webp" && lado <= LADO_WEBP) return false
+        val fuente = ImageDecoder.createSource(f)
+        if ((ext == "gif" || ext == "webp") && ImageDecoder.decodeDrawable(fuente) is android.graphics.drawable.AnimatedImageDrawable) return false
+        val bmp = ImageDecoder.decodeBitmap(ImageDecoder.createSource(f)) { d, info, _ ->
+            d.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            val m = maxOf(info.size.width, info.size.height)
+            if (m > LADO_WEBP) d.setTargetSize(info.size.width * LADO_WEBP / m, info.size.height * LADO_WEBP / m)
+        }
+        try { reescribir(f) { out -> if (!bmp.compress(Bitmap.CompressFormat.WEBP_LOSSY, 88, out)) throw Rechazado("No se pudo pasar a WebP") } }
+        finally { bmp.recycle() }
+        return true
+    }
+
     private fun cabecera(f: File, n: Int): ByteArray = f.inputStream().use { i ->
         val b = ByteArray(n); var leidos = 0
         while (leidos < n) { val r = i.read(b, leidos, n - leidos); if (r < 0) break; leidos += r }

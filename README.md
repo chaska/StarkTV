@@ -46,9 +46,11 @@ funcionar lo básico; la ventanita de TV y el PAP dependen de cómo el fabricant
 - El fondo se destruye al salir del inicio: mientras ves otra app no gasta memoria ni gráfica.
 
 ### Recibir fondos desde el móvil o el PC
-En *Ajustes › Launcher › Fondo › Recibir fondos desde el móvil o PC* la TV enseña una dirección con un número de 6 cifras.
-Abriéndola en el navegador de un aparato de la misma red se pueden **enviar** fondos (con barra de progreso),
-**ponerlos** de fondo, **renombrarlos** y **borrarlos**, y se ve cuál está puesto. Ver «Seguridad» más abajo.
+En *Ajustes › Launcher › Fondo › Recibir fondos desde el móvil o PC* la TV enseña una dirección y una **clave de 6 cifras nueva cada vez**.
+La página (con el icono, el nombre y la versión de Stark TV) pide la clave una vez; después se pueden **enviar** fondos
+(eligiendo el nombre de cada uno antes de mandarlo, con barra de progreso), **ponerlos** de fondo, **renombrarlos** y **borrarlos**,
+y se ve cuál está puesto. Las **imágenes fijas se guardan siempre en WebP** (como mucho 2560 px de lado): un PNG de 2,3 MB queda en unos 230 KB.
+Ver «Seguridad» más abajo.
 
 ### Aspecto
 - **Color de la interfaz** (7 colores): tiñe paneles, interruptores, reloj, luz de ambiente y selección.
@@ -84,7 +86,9 @@ Que la TV no corra riesgo por usar el launcher:
 - **HTML de USB, Descargas o `/sdcard`**: no se abren. De ahí solo se usan imágenes y vídeos.
 - **Recepción**:
   - Solo mientras su pantalla está abierta y solo desde la red de casa.
-  - Número aleatorio seguro y distinto cada vez.
+  - Clave de 6 cifras aleatoria segura, nueva cada vez que se abre; la página la pide y da al navegador una sesión propia
+    (cookie aleatoria de 128 bits, `HttpOnly`, `SameSite=Strict`) que muere al cerrar la pantalla.
+  - Las órdenes solo se aceptan desde la propia página (cabecera propia), no desde otras webs.
   - Freno de intentos:
     - con 5 fallos, ese aparato se queda fuera;
     - con 20 fallos en total, se cierra la recepción.
@@ -116,7 +120,7 @@ Un **HTML5** propio se envía con «Recibir fondos»: un `.html` suelto o un `.z
 ## Primera instalación
 
 ```bash
-adb install -r StarkTV-0.9.31.apk
+adb install -r StarkTV-0.9.32.apk
 adb shell appops set com.chaska.inicio MANAGE_EXTERNAL_STORAGE allow
 adb shell pm grant com.chaska.inicio android.permission.WRITE_SECURE_SETTINGS
 adb shell cmd package set-home-activity com.chaska.inicio/.MainActivity
