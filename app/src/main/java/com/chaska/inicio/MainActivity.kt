@@ -491,7 +491,7 @@ class MainActivity : Activity() {
         val v = vertical
         fila.removeAllViews()
         // Las fichas llevan margen interno para el halo; en vertical, además, el nombre va debajo.
-        val sep = dp(if (v) 12 else 18) - 2 * dp(26) + if (v && aj.nombres) dp(24) else 0
+        val sep = dp(if (v) 12 else 18) - 2 * dp(Ficha.margen(aj.tamano)) + if (v && aj.nombres) dp(24) else 0
         fun anadir(f: Ficha) {
             f.alEnfocar = { x -> x.postDelayed({ apuntarLuz(x, x.color, x.pivotX, x.pivotY) }, 120) }
             fila.addView(f, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {

@@ -42,8 +42,8 @@ class Ficha(
     private val ancho = ANCHOS[tam.coerceIn(0, 3)] * d * (if (esFav) 0.66f else 1f)
     private val alto = ANCHOS[tam.coerceIn(0, 3)] * d * 9f / 16f
     /** El halo va en proporción a la ficha: en micro es pequeño, en grande más amplio (1 = tamaño mediano). */
-    private val prop = ANCHOS[tam.coerceIn(0, 3)] / 176f
-    private val pad = 26f * d * prop                  // sitio para el halo y para crecer con el foco
+    private val pad = margen(tam) * d                 // sitio para el halo y para crecer con el foco
+    private val prop = pad / (26f * d)
     private val radio = 12f * d
     private val altoNombre = if (conNombre) 22f * d else 0f
     private val altoReflejo = if (conReflejo) alto * 0.4f else 0f
@@ -308,6 +308,8 @@ class Ficha(
     companion object {
         const val PAP = "stark:pap"
         val ANCHOS = floatArrayOf(112f, 144f, 176f, 208f)
+        /** Margen interno de la ficha (dp) para el halo: en proporción a su tamaño (26 en la mediana). */
+        fun margen(tam: Int) = 26f * ANCHOS[tam.coerceIn(0, 3)] / 176f
 
         /** -1 si te mueves a la izquierda, 1 a la derecha: la ficha que recibe el foco se inclina hacia ahí. */
         var inclinacionActual = 0f
