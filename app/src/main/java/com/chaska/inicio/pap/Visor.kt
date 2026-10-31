@@ -25,6 +25,7 @@ open class Visor(val parte: Int) : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!Pap.lanzadoEnEsteProceso) { aj.papActivo = false; finishAndRemoveTask(); return }   // reabierto por Android
         Fuentes.actual = aj.fuente
         ventana = VentanaTv(this, aj.colorSel, aj.p).apply {
             isFocusable = false
@@ -51,11 +52,12 @@ open class Visor(val parte: Int) : Activity() {
 
     override fun onStart() {
         super.onStart()
+        if (!::ventana.isInitialized) return
         ventana.encender(intent.getIntExtra(EXTRA_FUENTE, 0), conSonido = suena(hasWindowFocus()))
     }
 
     override fun onStop() {
-        ventana.apagar()
+        if (::ventana.isInitialized) ventana.apagar()
         super.onStop()
     }
 
@@ -66,7 +68,7 @@ open class Visor(val parte: Int) : Activity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        ventana.sonido(suena(hasFocus))
+        if (::ventana.isInitialized) ventana.sonido(suena(hasFocus))
     }
 
     override fun dispatchKeyEvent(e: KeyEvent): Boolean {
@@ -95,6 +97,7 @@ class VisorDer : Visor(2)
 class FondoPap : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!Pap.lanzadoEnEsteProceso) { Ajustes(this).papActivo = false; finishAndRemoveTask(); return }
         setContentView(android.view.View(this).apply { setBackgroundColor(Color.BLACK) })
         actual = this
     }

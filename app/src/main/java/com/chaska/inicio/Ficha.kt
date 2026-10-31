@@ -212,6 +212,16 @@ class Ficha(
 
     override fun onDraw(c: Canvas) {
         val activo = isFocused || levantada
+        if (esPap) {
+            // Solo el dibujo, tan grande como la ficha; el nombre «PAP» va debajo si está activado.
+            val an = alto * iconoPap.intrinsicWidth / iconoPap.intrinsicHeight.coerceAtLeast(1)
+            val x = r.centerX() - an / 2
+            iconoPap.setBounds(x.toInt(), r.top.toInt(), (x + an).toInt(), r.bottom.toInt())
+            iconoPap.alpha = if (activo) 255 else 210
+            iconoPap.draw(c)
+            if (conNombre) c.drawText(nombre, r.centerX(), r.bottom + 17f * d, pNombre)
+            return
+        }
         if (activo) halo?.let { c.drawBitmap(it, 0f, 0f, null) }
         if (conReflejo) reflejo(c)
         c.drawRoundRect(r, radio, radio, pSombra)

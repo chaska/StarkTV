@@ -30,6 +30,7 @@ class SelectorPap : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!Pap.lanzadoEnEsteProceso) { aj.papActivo = false; finish(); return }
         Fuentes.actual = aj.fuente
         ops = Pap.opciones(this)
         elegida[0] = ops.indexOfFirst { it.first == aj.papIzq }.coerceAtLeast(0)
@@ -290,17 +291,11 @@ class SelectorPap : Activity() {
 
         /** Un círculo de abajo: halo del color de la selección si está marcado, y su icono dentro. */
         private fun circulo(c: Canvas, x: Float, y: Float, rc: Float, i: Int, marcado: Boolean, tenue: Boolean) {
-            if (marcado) {
-                pHalo.color = conAlfa(sel, 0xD0); c.drawCircle(x, y, rc + 4 * d, pHalo)
-                pMarco.color = sel; pMarco.strokeWidth = 3 * d; c.drawCircle(x, y, rc + 3 * d, pMarco)
-            }
-            pRelleno.color = 0xE60E1118.toInt()
-            c.drawCircle(x, y, rc, pRelleno)
             val dib = dibujos.getOrNull(i) ?: return
-            val lado = (rc * if (i == 1) 2.0f else 1.5f).toInt()
+            val lado = (rc * if (marcado) 2.5f else 1.9f).toInt()
             val an = lado * dib.intrinsicWidth / dib.intrinsicHeight.coerceAtLeast(1)
             dib.setBounds((x - an / 2).toInt(), (y - lado / 2).toInt(), (x + an / 2).toInt(), (y + lado / 2).toInt())
-            dib.alpha = if (tenue) 90 else 255
+            dib.alpha = when { tenue -> 90; marcado -> 255; else -> 170 }
             dib.draw(c)
             if (tenue) { pX.color = 0xFFE5484D.toInt(); c.drawLine(x - rc * .6f, y + rc * .6f, x + rc * .6f, y - rc * .6f, pX) }
         }

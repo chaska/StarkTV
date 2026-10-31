@@ -79,6 +79,7 @@ object Pap {
         val objetivos = listOf(busqueda(aj.papIzq, 1) to Rect(r1), busqueda(aj.papDer, 2) to Rect(r2))
         aj.papActivo = true
         aj.papParte = manejar
+        lanzadoEnEsteProceso = true
         for (i in orden) {
             val (clave, rect, visor) = partes[i]
             val intent = if (clave.startsWith(TV))
@@ -94,6 +95,10 @@ object Pap {
     }
 
     @Volatile private var tanda = 0
+
+    /** Solo vale el PAP empezado desde Stark TV en este arranque. Tras reinstalar, Android reabre las
+     *  ventanas guardadas del PAP por su cuenta: si este valor es false, se cierran solas. */
+    @Volatile var lanzadoEnEsteProceso = false
 
     /**
      * Las apps se abren a su manera (trampolines como YouTube, pantallas de bienvenida como TDTChannels)

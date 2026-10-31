@@ -46,7 +46,7 @@ object Vidrio {
             textSize = 19f
             setTextColor(Color.WHITE)
             setPadding(ctx.dp(8), 0, 0, ctx.dp(10))
-            val d = dibujo?.mutate()?.apply { setBounds(0, 0, ctx.dp(28), ctx.dp(28)) }
+            val d = dibujo?.mutate()?.apply { setBounds(0, 0, ctx.dp(30) * intrinsicWidth / intrinsicHeight.coerceAtLeast(1), ctx.dp(30)) }
                 ?: icono?.let { Icono(it, Color.WHITE, ctx.dp(20)).apply { setBounds(0, 0, ctx.dp(20), ctx.dp(20)) } }
             if (d != null) { setCompoundDrawablesRelative(d, null, null, null); compoundDrawablePadding = ctx.dp(10) }
         }.conFuente(medio = true))
@@ -117,7 +117,7 @@ class Fila(ctx: Context, titulo: String, sel: Int, icono: Icono.Tipo? = null, di
         text = titulo
         textSize = 15f
         setTextColor(Color.WHITE)
-        val d = dibujo?.mutate()?.apply { setBounds(0, 0, ctx.dp(30), ctx.dp(30)) }
+        val d = dibujo?.mutate()?.apply { setBounds(0, 0, ctx.dp(30) * intrinsicWidth / intrinsicHeight.coerceAtLeast(1), ctx.dp(30)) }
             ?: icono?.let { Icono(it, 0xE6FFFFFF.toInt(), ctx.dp(18)).apply { setBounds(0, 0, ctx.dp(18), ctx.dp(18)) } }
         if (d != null) { setCompoundDrawablesRelative(d, null, null, null); compoundDrawablePadding = ctx.dp(12) }
     }.conFuente()

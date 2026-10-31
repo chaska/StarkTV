@@ -408,12 +408,11 @@ class MainActivity : Activity() {
         hora.visibility = if (aj.reloj) View.VISIBLE else View.GONE
         fecha.visibility = hora.visibility
         tiempo.visibility = if (aj.tiempo && textoTiempo != null) View.VISIBLE else View.GONE
-        botonAjustes.background = fondoBoton()
-        botonPap.background = fondoBoton()
+        botonAjustes.background = null
+        botonPap.background = null
         botonPap.visibility = if (aj.papBoton) View.VISIBLE else View.GONE
         // PAP o PIP según el modo; con el PAP en marcha, el botón brilla del color de la selección.
-        botonPap.setCompoundDrawablesRelative(dibujoPap().apply { setBounds(0, 0, dp(34), dp(34)) }, null, null, null)
-        botonPap.outlineSpotShadowColor = if (Pap.activo(aj)) aj.colorSel else Color.BLACK
+        botonPap.setCompoundDrawablesRelative(medida(dibujoPap(), 36), null, null, null)
         ventana.visibility = if (aj.tvVentana) View.VISIBLE else View.GONE
         titulo.visibility = if (aj.tituloDock) View.VISIBLE else View.GONE
     }
@@ -853,22 +852,26 @@ class MainActivity : Activity() {
         catch (e: Exception) { avisar("Esta TV no deja elegir el inicio") }
     }
 
+    /** El dibujo a [alto] dp de alto sin deformarlo. */
+    private fun medida(d: android.graphics.drawable.Drawable, alto: Int) = d.mutate().apply {
+        val h = dp(alto)
+        setBounds(0, 0, h * intrinsicWidth / intrinsicHeight.coerceAtLeast(1), h)
+    }
+
     private fun dibujoPap() = getDrawable(if (Pap.esPip(aj.papReparto)) R.drawable.ic_pip else R.drawable.ic_pap)!!.mutate()
 
     /** Botón redondo de la cabecera (tuerca, PAP): solo icono, se agranda y brilla con el foco. */
     private fun botonIcono(dibujo: android.graphics.drawable.Drawable, nombre: String, alPulsar: () -> Unit) = TextView(this).apply {
         contentDescription = nombre
         setPadding(dp(6), dp(6), dp(6), dp(6))
-        setCompoundDrawablesRelative(dibujo.mutate().apply { setBounds(0, 0, dp(34), dp(34)) }, null, null, null)
+        setCompoundDrawablesRelative(medida(dibujo, 36), null, null, null)
         isFocusable = true
-        elevation = dp(6).toFloat()
+        alpha = .8f
         setOnClickListener { alPulsar() }
+        // Sin caja ni contorno: con el foco el icono crece y se ve entero; la luz del fondo lo sigue.
         setOnFocusChangeListener { v, f ->
-            v.animate().scaleX(if (f) 1.08f else 1f).scaleY(if (f) 1.08f else 1f)
-                .translationY(if (f) -dp(3).toFloat() else 0f).setDuration(160).start()
-            v.elevation = dp(if (f) 14 else 6).toFloat()
-            v.outlineSpotShadowColor = if (f) aj.colorSel else Color.BLACK
-            v.outlineAmbientShadowColor = if (f) aj.colorSel else Color.BLACK
+            v.animate().scaleX(if (f) 1.3f else 1f).scaleY(if (f) 1.3f else 1f).alpha(if (f) 1f else .8f)
+                .translationY(if (f) -dp(2).toFloat() else 0f).setDuration(160).start()
             if (f) apuntarLuz(v, aj.colorSel, v.width / 2f, v.height / 2f)
         }
     }
