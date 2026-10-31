@@ -1139,7 +1139,7 @@ class MainActivity : Activity() {
     private fun elegirFondo(listo: () -> Unit) {
         val fondos = CatalogoFondos.todos(this)
         val ops = mutableListOf("Sin fondo")
-        ops += fondos.map { if (it.clave.startsWith("asset:")) it.nombre else "${it.tipo.etiqueta} · ${it.nombre}" }
+        ops += fondos.map { it.nombre }        // solo el nombre: sin «Imagen ·» ni la extensión
         if (!Environment.isExternalStorageManager()) ops += "Sin permiso para leer /sdcard/Fondos (ver README)"
         elegir("Fondo", ops) { i ->
             val clave = when {

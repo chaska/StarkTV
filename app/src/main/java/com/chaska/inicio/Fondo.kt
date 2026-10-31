@@ -80,10 +80,10 @@ object CatalogoFondos {
             dir.listFiles()?.sortedBy { it.name.lowercase() }?.forEach { f ->
                 // Una copia de un fondo que ya trae la app (castillo.webp en Descargas) no sale dos veces.
                 if (f.isFile && !f.name.startsWith(".") && INCLUIDOS.none { it.first.equals(f.name, ignoreCase = true) }) {
-                    tipoDe(f.name)?.let { if (it != OpcionFondo.Tipo.HTML || deConfianza) res += OpcionFondo(f.absolutePath, f.name, it) }
+                    tipoDe(f.name)?.let { if (it != OpcionFondo.Tipo.HTML || deConfianza) res += OpcionFondo(f.absolutePath, f.name.substringBeforeLast('.'), it) }
                 } else if (f.isDirectory && deConfianza) {
                     val idx = File(f, "index.html")
-                    if (idx.isFile) res += OpcionFondo(idx.absolutePath, f.name + "/", OpcionFondo.Tipo.HTML)
+                    if (idx.isFile) res += OpcionFondo(idx.absolutePath, f.name, OpcionFondo.Tipo.HTML)
                 }
             }
         }

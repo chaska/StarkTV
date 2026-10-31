@@ -120,7 +120,7 @@ Un **HTML5** propio se envía con «Recibir fondos»: un `.html` suelto o un `.z
 ## Primera instalación
 
 ```bash
-adb install -r StarkTV-0.9.33.apk
+adb install -r StarkTV-0.9.34.apk
 adb shell appops set com.chaska.inicio MANAGE_EXTERNAL_STORAGE allow
 adb shell pm grant com.chaska.inicio android.permission.WRITE_SECURE_SETTINGS
 adb shell cmd package set-home-activity com.chaska.inicio/.MainActivity
