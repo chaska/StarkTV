@@ -725,7 +725,7 @@ class MainActivity : Activity() {
 
         seccion("Copia")
         nueva("copia", "Copia de ajustes", "Guardar o recuperar  ›") { elegirCopia() }
-        cuerpo.addView(nota("Inicio TV ${packageManager.getPackageInfo(packageName, 0).versionName}"))
+        cuerpo.addView(nota("Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName}"))
 
         val dl = Vidrio.dialogo(this, panel, aj, Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, dp(20),
             resources.displayMetrics.heightPixels - dp(40))

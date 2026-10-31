@@ -1,4 +1,4 @@
-# Inicio TV
+# Stark TV
 
 Launcher ligero para Android TV (probado para la Thomson 2K, Android TV 14, 1 GB de RAM).
 Sin anuncios y sin librerías: el APK de release pesa 1,2 MB, casi todo por las 10 fuentes.
