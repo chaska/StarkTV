@@ -203,9 +203,9 @@ class Ficha(
         val c = Canvas(b)
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
         val tono = mezclar(color, Color.WHITE, .25f)
-        p.color = tono; p.alpha = 150; p.maskFilter = BlurMaskFilter(22f * d, BlurMaskFilter.Blur.NORMAL)
+        p.color = tono; p.alpha = 105; p.maskFilter = BlurMaskFilter(15f * d, BlurMaskFilter.Blur.NORMAL)
         c.drawRoundRect(RectF(r).apply { inset(-4f * d, -4f * d) }, radio, radio, p)
-        p.color = tono; p.alpha = 230; p.maskFilter = BlurMaskFilter(9f * d, BlurMaskFilter.Blur.NORMAL)
+        p.color = tono; p.alpha = 170; p.maskFilter = BlurMaskFilter(6f * d, BlurMaskFilter.Blur.NORMAL)
         c.drawRoundRect(RectF(r).apply { inset(-2f * d, -2f * d) }, radio, radio, p)
         return b
     }

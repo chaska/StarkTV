@@ -129,8 +129,11 @@ class MainActivity : Activity() {
         super.onStop()
     }
 
+    override fun onPause() { enInicio = false; super.onPause() }
+
     override fun onResume() {
         super.onResume()
+        enInicio = true
         // La tuerca del mando (servicio Teclas) pide abrir los ajustes de Stark TV.
         if (intent.getBooleanExtra(EXTRA_AJUSTES, false)) {
             intent.removeExtra(EXTRA_AJUSTES)
@@ -280,7 +283,8 @@ class MainActivity : Activity() {
         scroll.addView(fila)
         val zona = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false }
         zona.addView(titulo, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            marginStart = dp(if (v) 30 else 44); bottomMargin = dp(2)
+            marginStart = dp(if (v) 30 else 44); marginEnd = dp(44); bottomMargin = dp(2)
+            if (!v && aj.tvVentana && aj.tvPos == 3) gravity = Gravity.END
         })
         zona.addView(scroll, if (v) LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, 0, 1f)
             else LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -312,10 +316,14 @@ class MainActivity : Activity() {
     private class Cabecera(val relojIzq: Boolean, val botonIzq: Boolean)
 
     private fun cabecera(): Cabecera {
-        val relojIzq = when (aj.relojPos) {
+        var relojIzq = when (aj.relojPos) {
             1 -> true
             2 -> false
             else -> aj.dock == 5            // automático: el reloj se va al lado que deja libre el dock
+        }
+        if (aj.tvVentana && aj.tvPos in 1..2) {
+            val tvIzq = aj.tvPos == 1
+            if (relojIzq == tvIzq) relojIzq = !tvIzq
         }
         var botonIzq = !relojIzq
         if (botonIzq && aj.dock == 3) botonIzq = false
@@ -346,6 +354,19 @@ class MainActivity : Activity() {
     /** La ventanita de TDT va en una esquina que dejan libre el dock y el reloj. */
     private fun colocarVentana(c: Cabecera) {
         val lp = FrameLayout.LayoutParams(dp(288), dp(162))
+        if (aj.tvPos in 1..4) {
+            val izq = aj.tvPos == 1 || aj.tvPos == 3
+            val arriba = aj.tvPos <= 2
+            lp.gravity = (if (arriba) Gravity.TOP else Gravity.BOTTOM) or (if (izq) Gravity.START else Gravity.END)
+            if (arriba) lp.topMargin = dp(76)
+            else lp.bottomMargin = if (aj.dock == 0) {
+                val alto = Ficha.ANCHOS[aj.tamano.coerceIn(0, 3)] * 9 / 16
+                dp(alto + 34 + (if (aj.reflejo) alto * .4f else 0f) + (if (aj.nombres) 22 else 0))
+            } else dp(32)
+            lp.marginStart = dp(32); lp.marginEnd = dp(32)
+            ventana.layoutParams = lp
+            return
+        }
         when (aj.dock) {
             0 -> { lp.gravity = Gravity.TOP or if (c.relojIzq) Gravity.END else Gravity.START; lp.topMargin = dp(76) }
             3 -> { lp.gravity = Gravity.BOTTOM or Gravity.END; lp.bottomMargin = dp(32) }
@@ -569,7 +590,10 @@ class MainActivity : Activity() {
 
     private fun abrirFavoritos() {
         val favs = lista.favoritas()
-        val panel = Vidrio.panel(this, "Favoritos", 0, Icono.Tipo.ESTRELLA_LLENA)
+        val panel = Vidrio.panel(this, "Favoritos", 0, Icono.Tipo.ESTRELLA_LLENA).apply {
+            clipChildren = false; clipToPadding = false
+            setPadding(dp(26), dp(18), dp(26), dp(22))
+        }
         val rejilla = GridLayout(this).apply { columnCount = 3; clipChildren = false; clipToPadding = false }
         val solape = -dp(4)
         for (k in 0 until ListaApps.MAX_FAV) {
@@ -895,6 +919,15 @@ class MainActivity : Activity() {
             })
         }
         val sw = Interruptor(this, aj.tvSonido)
+        Ajustes.POSICIONES_TV.forEachIndexed { i, nombre ->
+            anadirAGrupo(g, Fila(this, "Posición: $nombre", sel).apply {
+                if (i + 1 == aj.tvPos) accesorio = View(this@MainActivity).apply {
+                    background = icono(Icono.Tipo.CHECK, sel, 18)
+                    layoutParams = LinearLayout.LayoutParams(dp(18), dp(18))
+                }
+                setOnClickListener { dialogo?.dismiss(); aj.tvPos = i + 1; montarDock() }
+            })
+        }
         anadirAGrupo(g, Fila(this, "Sonido", sel).apply {
             accesorio = sw
             setOnClickListener { sw.encendido = !sw.encendido; aj.tvSonido = sw.encendido; ventana.sonido(sw.encendido) }
@@ -1080,6 +1113,8 @@ class MainActivity : Activity() {
 
     companion object {
         const val EXTRA_AJUSTES = "abrir_ajustes"
+        /** El inicio de Stark TV está en pantalla. */
+        @Volatile var enInicio = false
         private var ajustesRepuestos = false
         /** Fila de Launcher a la que volver tras rehacer la pantalla (cambio de fuente). */
         private var reabrirLauncher: String? = null

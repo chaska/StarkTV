@@ -25,6 +25,7 @@ class Ajustes(ctx: Context) {
     var tituloDock by booleano("titulo_dock", true)
     var tvSonido by booleano("tv_sonido", false)
     var tvFuente by entero("tv_fuente", 0)      // índice de FUENTES_TV
+    var tvPos by entero("tv_pos", 0)            // ventanita de TV: 0 automática, 1-4 según POSICIONES_TV
     var papReparto by entero("pap_reparto", 0)   // índice de Pap.REPARTOS
     var papIzq by texto("pap_izq", "tv:0")       // "tv:N" o paquete de la app
     var papDer by texto("pap_der", "com.google.android.youtube.tv")
@@ -103,6 +104,7 @@ class Ajustes(ctx: Context) {
         val TAMANOS = listOf("Micro", "Pequeño", "Mediano", "Grande")
         val POSICIONES = listOf("Abajo", "Centro", "Arriba", "Izquierda", "Centro vertical", "Derecha")
         val POSICIONES_RELOJ = listOf("Automática", "Izquierda", "Derecha")
+        val POSICIONES_TV = listOf("Arriba izquierda", "Arriba derecha", "Abajo izquierda", "Abajo derecha")
         val FUENTES_TV = listOf("Antena", "HDMI 1", "HDMI 2", "HDMI 3", "AV")
         fun esVertical(dock: Int) = dock >= 3
         val MINUTOS_ROTAR = listOf(0, 15, 30, 60)

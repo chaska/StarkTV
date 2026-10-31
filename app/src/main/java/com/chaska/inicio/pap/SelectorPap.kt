@@ -269,7 +269,7 @@ class SelectorPap : Activity() {
             }
             // Abajo, entre las dos partes: altavoz · X · modos, con los iconos de la lámina.
             val cx = width / 2f
-            val cy = height - 74 * d
+            val cy = height - 96 * d
             val rc = 28 * d
             val ax = cx - 78 * d
             val mx = cx + 78 * d
@@ -277,13 +277,15 @@ class SelectorPap : Activity() {
             circulo(c, cx, cy, rc, 1, marca.tipo == Marca.CERRAR, false)
             circulo(c, mx, cy, rc, 2, marca.tipo == Marca.MODO, false)
             pFuente.color = Color.WHITE
-            c.drawText(sonido, ax, cy - rc - 8 * d, pFuente)
-            c.drawText("Modo", mx, cy - rc - 8 * d, pFuente)
+            val ty0 = cy + rc * 1.3f + 18 * d
+            c.drawText(sonido, ax, ty0, pFuente)
+            c.drawText("Salir", cx, ty0, pFuente)
+            c.drawText("Modo", mx, ty0, pFuente)
             if (lista >= 0) dibujarLista(c, mx, cy - rc - 30 * d)
             // Leyenda.
             val flechas = if (arribaAbajo) "▲ ▼" else "◀ ▶"
             val texto = "$flechas elige · ▼ cambia la fuente · OK aplica · Tuerca: volver · Mantén la tuerca o pulsa la X: salir"
-            val ty = height - 22 * d
+            val ty = 40 * d
             val w = pTexto.measureText(texto) / 2 + 16 * d
             c.drawRoundRect(cx - w, ty - 22 * d, cx + w, ty + 10 * d, 14 * d, 14 * d, pFondoTexto)
             c.drawText(texto, cx, ty, pTexto)

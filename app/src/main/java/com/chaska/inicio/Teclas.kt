@@ -49,7 +49,7 @@ class Teclas : AccessibilityService() {
             return true
         }
         if (e.keyCode !in TECLAS_AJUSTES) return false
-        val nuestro = delante == packageName || Pap.activo(Ajustes(this))
+        val nuestro = MainActivity.enInicio || delante == packageName || Pap.activo(Ajustes(this))
         if (!nuestro) return false
         if (e.action == KeyEvent.ACTION_UP) {
             startActivity(Intent(this, MainActivity::class.java)
