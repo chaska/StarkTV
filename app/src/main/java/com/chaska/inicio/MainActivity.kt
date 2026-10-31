@@ -191,7 +191,7 @@ class MainActivity : Activity() {
         botonAjustes = botonIcono(Icono.Tipo.AJUSTES, "Ajustes") { abrirAjustes() }
         contenido.addView(botonAjustes)
         // PAP de un toque: si está parado lo empieza; si está en marcha, abre su panel.
-        botonPap = botonIcono(Icono.Tipo.PAP, "PAP") { if (aj.papActivo) panelPap() else Pap.lanzar(this, aj, nuevo = true) }
+        botonPap = botonIcono(Icono.Tipo.PAP, "PAP") { empezarOSelector() }
         contenido.addView(botonPap)
 
         bloqueReloj = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -406,7 +406,7 @@ class MainActivity : Activity() {
         titulo.visibility = if (aj.tituloDock) View.VISIBLE else View.GONE
     }
 
-    private fun firmaActual() = listOf(lista.orden(), lista.favoritas(), aj.tamano, aj.nombres, aj.reflejo, aj.animaciones, aj.dock).toString()
+    private fun firmaActual() = listOf(lista.orden(), lista.favoritas(), aj.tamano, aj.nombres, aj.reflejo, aj.animaciones, aj.dock, aj.papDock).toString()
 
     /** Rehace el dock solo si algo cambió (orden, favoritas, tamaño…): volver al inicio es instantáneo. */
     private fun pintarCarrusel(forzar: Boolean = false) {
@@ -427,6 +427,7 @@ class MainActivity : Activity() {
             })
         }
         anadir(nuevaFicha(null).apply { setOnClickListener { abrirFavoritos() } })
+        if (aj.papDock) anadir(nuevaFicha(Ficha.PAP).apply { setOnClickListener { empezarOSelector() } })
         for (p in orden) {
             val f = nuevaFicha(p)
             f.esFavorita = p in favs
@@ -536,7 +537,8 @@ class MainActivity : Activity() {
     private fun moverPaso(f: Ficha, dx: Int) {
         val i = fila.indexOfChild(f)
         val j = i + dx
-        if (j < 1 || j >= fila.childCount) return     // la 0 es Favoritos, no se mueve
+        // Favoritos (y la ficha PAP si está) van fijas al principio.
+        if (j < (if (aj.papDock) 2 else 1) || j >= fila.childCount) return
         // Todas las fichas tras Favoritos llevan el mismo margen: basta con cambiarla de sitio.
         fila.removeViewAt(i)
         fila.addView(f, j)
@@ -550,7 +552,7 @@ class MainActivity : Activity() {
         f.levantada = false
         fichas().forEach { it.animate().alpha(1f).setDuration(200).start() }
         aviso.visibility = View.GONE
-        lista.guardarOrden(fichas().mapNotNull { it.paquete })
+        lista.guardarOrden(fichas().mapNotNull { it.paquete }.filter { it != Ficha.PAP })
         firma = firmaActual()
     }
 
@@ -754,7 +756,8 @@ class MainActivity : Activity() {
         opciones("papder", partes(aj.papReparto).second, papOps.map { it.second }, papOps.indexOfFirst { it.first == aj.papDer }) { i -> aj.papDer = papOps[i].first }
         val sonidos = { r: Int -> if (r == 3) listOf("La que manejas", "Arriba", "Abajo", "Las dos") else listOf("La que manejas", "Izquierda", "Derecha", "Las dos") }
         opciones("papsonido", "Sonido de la TV", sonidos(aj.papReparto), aj.papSonido) { i -> aj.papSonido = i }
-        interruptor("papboton", "Botón PAP en el inicio", aj.papBoton) { aj.papBoton = it; aplicar(); montarDock() }
+        interruptor("papboton", "Widget PAP en el inicio", aj.papBoton) { aj.papBoton = it; aplicar(); montarDock() }
+        interruptor("papdock", "PAP en el dock", aj.papDock) { aj.papDock = it; pintarCarrusel(true) }
         nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.lanzar(this, aj, nuevo = true) }
 
         seccion("Sistema")
@@ -849,6 +852,9 @@ class MainActivity : Activity() {
         dialogo = Vidrio.dialogo(this, panel, aj)
         (g.getChildAt(aj.tvFuente * 2) ?: g.getChildAt(0))?.requestFocus()
     }
+
+    /** Widget y ficha PAP: si está parado lo empieza; si está en marcha, abre el selector. */
+    private fun empezarOSelector() = if (aj.papActivo) panelPap() else Pap.lanzar(this, aj, nuevo = true)
 
     /**
      * Con el PAP en marcha, Inicio vuelve a poner delante las dos partes y abre encima el selector

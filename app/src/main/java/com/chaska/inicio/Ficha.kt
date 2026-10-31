@@ -37,6 +37,8 @@ class Ficha(
 ) : View(ctx) {
     private val d = resources.displayMetrics.density
     private val esFav = paquete == null
+    /** Ficha especial que empieza el PAP (ajuste «PAP en el dock»). */
+    private val esPap = paquete == PAP
     private val ancho = ANCHOS[tam.coerceIn(0, 3)] * d * (if (esFav) 0.66f else 1f)
     private val alto = ANCHOS[tam.coerceIn(0, 3)] * d * 9f / 16f
     private val pad = 26f * d                         // sitio para el halo y para crecer con el foco
@@ -49,10 +51,11 @@ class Ficha(
     private val rGiro = RectF(r).apply { inset(-3f * d, -3f * d) }
     private val camino = Path().apply { addRoundRect(r, radio, radio, Path.Direction.CW) }
 
-    val nombre: String = if (paquete == null) "Favoritos" else Apps.nombre(ctx, paquete)
-    private val banner: Drawable? = paquete?.let { Apps.banner(ctx, it) }
-    private val icono: Drawable? = if (banner == null) paquete?.let { Apps.icono(ctx, it) } else null
-    val color: Int = if (esFav) 0xFFE0A949.toInt() else colorMedio(banner ?: icono)
+    val nombre: String = when { paquete == null -> "Favoritos"; esPap -> "PAP"; else -> Apps.nombre(ctx, paquete) }
+    private val banner: Drawable? = if (esPap) null else paquete?.let { Apps.banner(ctx, it) }
+    private val icono: Drawable? = if (banner == null && !esPap) paquete?.let { Apps.icono(ctx, it) } else null
+    val color: Int = when { esFav -> 0xFFE0A949.toInt(); esPap -> 0xFF3A6FD8.toInt(); else -> colorMedio(banner ?: icono) }
+    private val iconoPap = Icono(Icono.Tipo.PAP, Color.WHITE, 0)
 
     var esFavorita = false
         set(v) { field = v; invalidate() }
@@ -228,6 +231,14 @@ class Ficha(
                 banner.setBounds(r.left.toInt(), r.top.toInt(), r.right.toInt(), r.bottom.toInt())
                 banner.draw(c)
             }
+            esPap -> {
+                val l = (alto * .34f).toInt()
+                val x = (r.centerX() - l / 2).toInt()
+                val y = (r.centerY() - alto * .32f).toInt()
+                iconoPap.setBounds(x, y, x + l, y + l)
+                iconoPap.draw(c)
+                c.drawText("PAP", r.centerX(), r.centerY() + alto * .28f, pTexto.apply { textSize = alto * .15f })
+            }
             esFav -> {
                 val y = r.centerY()
                 estrellaFav.draw(c)
@@ -281,6 +292,7 @@ class Ficha(
     }
 
     companion object {
+        const val PAP = "stark:pap"
         val ANCHOS = floatArrayOf(112f, 144f, 176f, 208f)
 
         /** -1 si te mueves a la izquierda, 1 a la derecha: la ficha que recibe el foco se inclina hacia ahí. */
