@@ -76,3 +76,26 @@ open class Visor(private val parte: Int) : Activity() {
 
 class VisorIzq : Visor(1)
 class VisorDer : Visor(2)
+
+/**
+ * Fondo del PAP: pantalla negra a pantalla completa, de Stark TV, que queda debajo de las dos partes.
+ * Así el PAP es «una app» sobre el launcher y no asoma el inicio por los huecos. No se maneja:
+ * si el mando llega aquí, Inicio (servicio Teclas) abre el selector.
+ */
+class FondoPap : Activity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(android.view.View(this).apply { setBackgroundColor(Color.BLACK) })
+        actual = this
+    }
+
+    override fun onDestroy() {
+        if (actual === this) actual = null
+        super.onDestroy()
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean =
+        if (keyCode == KeyEvent.KEYCODE_BACK) true else super.onKeyDown(keyCode, event)
+
+    companion object { var actual: FondoPap? = null }
+}

@@ -89,6 +89,14 @@
             android:taskAffinity="com.chaska.inicio.selector"
             android:theme="@style/Tema.Transparente" />
 
+        <!-- Fondo negro del PAP, a pantalla completa debajo de las dos partes. -->
+        <activity
+            android:name=".FondoPap"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.chaska.inicio.papfondo" />
+
         <!-- Visores de TV del PAP: uno por mitad, cada uno en su tarea para poder estar a la vez. -->
         <activity
             android:name=".VisorIzq"

@@ -56,6 +56,10 @@ object Pap {
         val d = aj.p.getInt("pap_n", 0)
         r1.left += d; r2.left += d
         val partes = listOf(Triple(aj.papIzq, r1, VisorIzq::class.java), Triple(aj.papDer, r2, VisorDer::class.java))
+        // Debajo de todo, el fondo negro del PAP (a pantalla completa): tapa el launcher.
+        try {
+            act.startActivity(Intent(act, FondoPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), opciones(null, MODO_PANTALLA_COMPLETA))
+        } catch (e: Exception) { Log.w(TAG, "PAP: sin fondo: $e") }
         val orden = if (manejar == 1) listOf(1, 0) else listOf(0, 1)
         aj.papActivo = true
         aj.papParte = manejar
@@ -74,6 +78,7 @@ object Pap {
     fun salir(aj: Ajustes) {
         aj.papActivo = false
         Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
+        FondoPap.actual?.finishAndRemoveTask()
     }
 
     /** Opciones para abrir una app normal: pantalla completa aunque la última vez estuviera en el PAP. */
