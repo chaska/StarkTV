@@ -526,7 +526,8 @@ class MainActivity : Activity() {
     private fun apuntarLuz(v: View, color: Int, cx: Float, cy: Float) {
         val loc = IntArray(2)
         v.getLocationInWindow(loc)
-        luces.apuntar(loc[0] + cx, loc[1] + cy, color)
+        // La luz de fondo, vez y media lo enfocado: con fichas micro, pequeña; con grandes, amplia.
+        luces.apuntar(loc[0] + cx, loc[1] + cy, color, v.width * 1.5f)
     }
 
     // ---------- Acciones ----------

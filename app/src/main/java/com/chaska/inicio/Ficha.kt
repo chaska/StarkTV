@@ -41,7 +41,9 @@ class Ficha(
     private val esPap = paquete == PAP
     private val ancho = ANCHOS[tam.coerceIn(0, 3)] * d * (if (esFav) 0.66f else 1f)
     private val alto = ANCHOS[tam.coerceIn(0, 3)] * d * 9f / 16f
-    private val pad = 26f * d                         // sitio para el halo y para crecer con el foco
+    /** El halo va en proporción a la ficha: en micro es pequeño, en grande más amplio (1 = tamaño mediano). */
+    private val prop = ANCHOS[tam.coerceIn(0, 3)] / 176f
+    private val pad = 26f * d * prop                  // sitio para el halo y para crecer con el foco
     private val radio = 12f * d
     private val altoNombre = if (conNombre) 22f * d else 0f
     private val altoReflejo = if (conReflejo) alto * 0.4f else 0f
@@ -203,10 +205,10 @@ class Ficha(
         val c = Canvas(b)
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
         val tono = mezclar(color, Color.WHITE, .25f)
-        p.color = tono; p.alpha = 105; p.maskFilter = BlurMaskFilter(15f * d, BlurMaskFilter.Blur.NORMAL)
-        c.drawRoundRect(RectF(r).apply { inset(-4f * d, -4f * d) }, radio, radio, p)
-        p.color = tono; p.alpha = 170; p.maskFilter = BlurMaskFilter(6f * d, BlurMaskFilter.Blur.NORMAL)
-        c.drawRoundRect(RectF(r).apply { inset(-2f * d, -2f * d) }, radio, radio, p)
+        p.color = tono; p.alpha = 105; p.maskFilter = BlurMaskFilter(15f * d * prop, BlurMaskFilter.Blur.NORMAL)
+        c.drawRoundRect(RectF(r).apply { inset(-4f * d * prop, -4f * d * prop) }, radio, radio, p)
+        p.color = tono; p.alpha = 170; p.maskFilter = BlurMaskFilter(6f * d * prop, BlurMaskFilter.Blur.NORMAL)
+        c.drawRoundRect(RectF(r).apply { inset(-2f * d * prop, -2f * d * prop) }, radio, radio, p)
         return b
     }
 

@@ -21,14 +21,16 @@ class Luces(ctx: Context) : View(ctx) {
     private var x = -1f
     private var y = -1f
     private var color = 0xFFF2A93B.toInt()
+    private var radio = -1f
     private var anim: ValueAnimator? = null
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val mezcla = ArgbEvaluator()
 
-    fun apuntar(nx: Float, ny: Float, nc: Int) {
+    /** Lleva el foco de color a (nx, ny); [nr] es su radio, en proporción a lo enfocado. */
+    fun apuntar(nx: Float, ny: Float, nc: Int, nr: Float) {
         anim?.cancel()
-        if (x < 0) { x = nx; y = ny; color = nc; invalidate(); return }
-        val x0 = x; val y0 = y; val c0 = color
+        if (x < 0) { x = nx; y = ny; color = nc; radio = nr; invalidate(); return }
+        val x0 = x; val y0 = y; val c0 = color; val r0 = radio
         anim = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 450
             interpolator = DecelerateInterpolator(2f)
@@ -36,6 +38,7 @@ class Luces(ctx: Context) : View(ctx) {
                 val t = it.animatedFraction
                 x = x0 + (nx - x0) * t
                 y = y0 + (ny - y0) * t
+                radio = r0 + (nr - r0) * t
                 color = mezcla.evaluate(t, c0, nc) as Int
                 invalidate()
             }
@@ -82,7 +85,6 @@ class Luces(ctx: Context) : View(ctx) {
                 colores[0] = conAlfa(color, 0xB0); colores[1] = conAlfa(color, 0x48); colores[2] = 0
                 p.shader = RadialGradient(0f, 0f, 1f, colores, posiciones, Shader.TileMode.CLAMP)
             }
-            val radio = w * .36f
             c.save()
             c.translate(x, y)
             c.scale(radio, radio * .66f)
