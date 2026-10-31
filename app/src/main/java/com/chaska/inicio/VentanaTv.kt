@@ -97,6 +97,9 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
 
     fun encender() {
         val tim = context.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
+        sonido(prefs.getBoolean("tv_sonido", false))
+        val fuente = prefs.getInt("tv_fuente", 0)
+        if (fuente > 0) { externa(tim, fuente); return }
         sintonizadores = tim?.tvInputList?.filter { it.type == TvInputInfo.TYPE_TUNER }?.map { it.id }?.sorted() ?: emptyList()
         // El principal primero (HW0).
         entrada = sintonizadores.firstOrNull { it.endsWith("HW0") } ?: sintonizadores.firstOrNull()
@@ -113,6 +116,26 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         } else {
             estado.text = "Esta TV no deja ver el sintonizador"
         }
+    }
+
+    /** Sonido de la ventana: apagado por defecto para no pisar al resto. */
+    fun sonido(con: Boolean) = tv.setStreamVolume(if (con) 1f else 0f)
+
+    /** HDMI 1-3 o AV: entradas directas (passthrough), no necesitan canal. */
+    private fun externa(tim: TvInputManager?, fuente: Int) {
+        val todas = tim?.tvInputList ?: emptyList()
+        val hdmi = todas.filter { it.type == TvInputInfo.TYPE_HDMI }.map { it.id }.sorted()
+        val av = todas.filter { it.type == TvInputInfo.TYPE_COMPOSITE }.map { it.id }.sorted()
+        val id = if (fuente <= 3) hdmi.getOrNull(fuente - 1) else av.firstOrNull()
+        canales = emptyList()
+        entrada = null
+        rotulo.text = listOf("HDMI 1", "HDMI 2", "HDMI 3", "AV").getOrElse(fuente - 1) { "Entrada" }
+        if (id == null) { estado.visibility = View.VISIBLE; estado.text = "Esta TV no tiene esa entrada"; return }
+        estado.visibility = View.VISIBLE
+        estado.text = "Conectando…"
+        Log.i(TAG, "entrada externa $id")
+        try { tv.tune(id, TvContract.buildChannelUriForPassthroughInput(id)) }
+        catch (e: Exception) { estado.text = "La TV no deja mostrar esta entrada aquí" }
     }
 
     fun apagar() {

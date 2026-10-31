@@ -23,6 +23,8 @@ class Ajustes(ctx: Context) {
     var dock by entero("dock", 0)               // índice de POSICIONES
     var tvVentana by booleano("tv_ventana", false)
     var tituloDock by booleano("titulo_dock", true)
+    var tvSonido by booleano("tv_sonido", false)
+    var tvFuente by entero("tv_fuente", 0)      // índice de FUENTES_TV
     var relojPos by entero("reloj_pos", 0)      // 0 automático (lado libre), 1 izquierda, 2 derecha
     var rotarMin by entero("rotar_min", 0)      // 0 = no cambiar el fondo solo
     var salvaMin by entero("salva_min", 10)     // 0 = sin salvapantallas
@@ -89,6 +91,7 @@ class Ajustes(ctx: Context) {
         val TAMANOS = listOf("Micro", "Pequeño", "Mediano", "Grande")
         val POSICIONES = listOf("Abajo", "Centro", "Arriba", "Izquierda", "Centro vertical", "Derecha")
         val POSICIONES_RELOJ = listOf("Automática", "Izquierda", "Derecha")
+        val FUENTES_TV = listOf("Antena", "HDMI 1", "HDMI 2", "HDMI 3", "AV")
         fun esVertical(dock: Int) = dock >= 3
         val MINUTOS_ROTAR = listOf(0, 15, 30, 60)
         val MINUTOS_SALVA = listOf(0, 5, 10, 30)

@@ -712,11 +712,16 @@ class MainActivity : Activity() {
         opciones("salva", "Salvapantallas", minutos(Ajustes.MINUTOS_SALVA), Ajustes.MINUTOS_SALVA.indexOf(aj.salvaMin)) { i ->
             aj.salvaMin = Ajustes.MINUTOS_SALVA[i]
         }
-        interruptor("tdt", "Ventana de TDT en directo", aj.tvVentana) {
+        interruptor("tdt", "Ventana de TV en directo", aj.tvVentana) {
             aj.tvVentana = it
             aplicar()
             if (it) ventana.encender() else ventana.apagar()
         }
+        opciones("tvfuente", "Fuente de la ventana", Ajustes.FUENTES_TV, aj.tvFuente) { i ->
+            aj.tvFuente = i
+            if (aj.tvVentana) { ventana.apagar(); ventana.encender() }
+        }
+        interruptor("tvsonido", "Sonido de la ventana", aj.tvSonido) { aj.tvSonido = it; ventana.sonido(it) }
 
         seccion("Efectos")
         interruptor("reflejo", "Reflejo en el suelo", aj.reflejo) { aj.reflejo = it; pintarCarrusel(true) }
