@@ -653,19 +653,44 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             setPadding(dp(8), 0, 0, dp(6))
         }.conFuente(medio = true))
+        // Pestañas arriba (◀ ▶ las recorren y se ve solo lo de cada una); ▼ baja a sus opciones.
+        val pestanas = LinearLayout(this).apply { setPadding(dp(4), dp(2), dp(4), dp(10)) }
+        panel.addView(android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(pestanas) })
         val cuerpo = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         panel.addView(ScrollView(this).apply { isVerticalScrollBarEnabled = false; clipToPadding = false; addView(cuerpo) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        val paginas = mutableListOf<LinearLayout>()
+        fun mostrar(i: Int) {
+            paginas.forEachIndexed { k, p -> p.visibility = if (k == i) View.VISIBLE else View.GONE }
+            for (k in 0 until pestanas.childCount) pestanas.getChildAt(k).isSelected = k == i
+        }
 
         var actual: LinearLayout? = null
         fun seccion(t: String) {
-            cuerpo.addView(TextView(this).apply {
+            val pagina = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+            cuerpo.addView(pagina, filaLp())
+            paginas += pagina
+            val i = paginas.size - 1
+            pestanas.addView(TextView(this).apply {
                 text = t
-                textSize = 12f
-                setTextColor(0x99FFFFFF.toInt())
-                setPadding(dp(14), dp(16), 0, dp(6))
-            }.conFuente(medio = true))
-            actual = grupo().also { cuerpo.addView(it, filaLp()) }
+                textSize = 14f
+                setTextColor(Color.WHITE)
+                isFocusable = true
+                setPadding(dp(14), dp(7), dp(14), dp(7))
+                background = StateListDrawable().apply {
+                    addState(intArrayOf(android.R.attr.state_focused), GradientDrawable().apply {
+                        cornerRadius = dp(16).toFloat(); setColor(conAlfa(sel, 0x80)); setStroke(dp(1.5f), sel)
+                    })
+                    addState(intArrayOf(android.R.attr.state_selected), GradientDrawable().apply {
+                        cornerRadius = dp(16).toFloat(); setColor(0x26FFFFFF)
+                    })
+                    addState(intArrayOf(), android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+                }
+                setOnFocusChangeListener { _, f -> if (f) mostrar(i) }
+                // OK sobre la pestaña: a su primera opción.
+                setOnClickListener { (pagina.getChildAt(0) as? ViewGroup)?.getChildAt(0)?.requestFocus() }
+            }.conFuente(medio = true), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(4) })
+            actual = grupo().also { pagina.addView(it, filaLp()) }
         }
         fun nueva(clave: String, t: String, valor: String? = null, acc: View? = null, alPulsar: (Fila) -> Unit): Fila {
             val f = Fila(this, t, sel)
@@ -723,7 +748,7 @@ class MainActivity : Activity() {
         interruptor("nombres", "Nombre bajo las apps", aj.nombres) { aj.nombres = it; pintarCarrusel(true) }
         nueva("ocultas", "Apps ocultas", "${lista.ocultas().size}  ›") { f -> elegirOcultas { f.valor.text = "${lista.ocultas().size}  ›" } }
 
-        seccion("Reloj y tiempo")
+        seccion("Reloj")
         interruptor("reloj", "Reloj", aj.reloj) { aj.reloj = it; aplicar() }
         interruptor("tiempo", "Tiempo", aj.tiempo) { aj.tiempo = it; aplicar(); if (it) pedirTiempo() }
         nueva("ciudad", "Ciudad", "${aj.ciudad}  ›") { f ->
@@ -758,7 +783,7 @@ class MainActivity : Activity() {
         interruptor("cristal", "Cristal difuminado", aj.cristal) { aj.cristal = it }
         interruptor("animaciones", "Animaciones de luz", aj.animaciones) { aj.animaciones = it; pintarCarrusel(true) }
 
-        seccion("PAP · dos cosas a la vez")
+        seccion("PAP")
         opciones("papreparto", "Reparto", Pap.REPARTOS, aj.papReparto) { i -> aj.papReparto = i }
         val partes = { r: Int -> if (r == 3) "Arriba" to "Abajo" else "Izquierda" to "Derecha" }
         // Qué va en cada parte: ◀ ▶ recorren Antena, HDMI 1-3, AV y las apps; OK abre la lista.
@@ -784,16 +809,18 @@ class MainActivity : Activity() {
         swPorDefecto = sw
         nueva("pordefecto", "Launcher por defecto", acc = sw) { cambiarPorDefecto(!esPorDefecto()) }
 
-        seccion("Copia")
         nueva("copia", "Copia de ajustes", "Guardar o recuperar  ›") { elegirCopia() }
-        cuerpo.addView(nota("Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName}"))
+        panel.addView(nota("Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName}"))
 
         val dl = Vidrio.dialogo(this, panel, aj, Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, dp(20),
             resources.displayMetrics.heightPixels - dp(40))
         dl.setOnCancelListener { abrirAjustes() }          // Atrás: vuelve a la primera pantalla
         dialogo = dl
-        val foco = enfocar?.let { cuerpo.findViewWithTag<View>(it) } ?: cuerpo.findViewWithTag<View>("fondo")
-        foco?.requestFocus()
+        // Al volver a una fila concreta (cambio de color o de fuente) se abre su pestaña; si no, la primera.
+        val foco = enfocar?.let { cuerpo.findViewWithTag<View>(it) }
+        val pagina = paginas.indexOfFirst { p -> foco != null && p.findViewWithTag<View>(enfocar) != null }
+        mostrar(if (pagina >= 0) pagina else 0)
+        (foco ?: pestanas.getChildAt(0))?.requestFocus()
     }
 
     private fun esPorDefecto() = getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_HOME) == true
