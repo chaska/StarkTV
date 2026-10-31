@@ -22,7 +22,8 @@ class Ajustes(ctx: Context) {
     var fuente by entero("fuente", 1)
     var dock by entero("dock", 0)               // índice de POSICIONES
     var tvVentana by booleano("tv_ventana", false)
-    var tvRotulo by booleano("tv_rotulo", true)  // nombre del canal o de la fuente sobre la imagen (ventanita y PAP)
+    var tvRotulo by booleano("tv_rotulo", true)
+    var verVersion by booleano("ver_version", true) // «Stark TV 0.9.x» abajo a la derecha del inicio  // nombre del canal o de la fuente sobre la imagen (ventanita y PAP)
     var tituloDock by booleano("titulo_dock", true)
     var tvSonido by booleano("tv_sonido", false)
     var tvFuente by entero("tv_fuente", 0)      // índice de FUENTES_TV

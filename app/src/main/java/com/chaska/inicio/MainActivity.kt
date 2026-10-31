@@ -48,6 +48,7 @@ class MainActivity : Activity() {
     private lateinit var botonPap: TextView
     private lateinit var hora: TextClock
     private lateinit var horaSalva: TextClock
+    private lateinit var version: TextView
     private lateinit var fecha: TextClock
     private lateinit var tiempo: TextView
     private lateinit var titulo: TextView
@@ -266,12 +267,13 @@ class MainActivity : Activity() {
         contenido.addView(aviso, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = (resources.displayMetrics.heightPixels * .33f).toInt() })
         // Versión, pequeña abajo a la derecha, para saber siempre cuál está instalada.
-        contenido.addView(TextView(this).apply {
+        version = TextView(this).apply {
             text = "Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName}"
             textSize = 11f
             setTextColor(0x80FFFFFF.toInt())
             setShadowLayer(dp(4).toFloat(), 0f, 0f, Color.BLACK)
-        }.conFuente(), FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        }.conFuente()
+        contenido.addView(version, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(14), dp(4)) })
         montarDock()
     }
@@ -492,6 +494,7 @@ class MainActivity : Activity() {
         botonPap.setCompoundDrawablesRelative(medida(dibujoPap(), 36), null, null, null)
         ventana.visibility = if (aj.tvVentana) View.VISIBLE else View.GONE
         titulo.visibility = if (aj.tituloDock) View.VISIBLE else View.GONE
+        version.visibility = if (aj.verVersion) View.VISIBLE else View.GONE
     }
 
     private fun firmaActual() = listOf(lista.orden(), lista.favoritas(), aj.tamano, aj.nombres, aj.reflejo, aj.animaciones, aj.dock, aj.papDock).toString()
@@ -847,6 +850,7 @@ class MainActivity : Activity() {
             dialogo?.dismiss()
             abrirLauncher(enfocar = "color")     // se vuelve a abrir para pintarlo con el color nuevo
         }
+        interruptor("version", "Versión en el inicio", aj.verVersion) { aj.verVersion = it; aplicar() }
         opciones("salva", "Salvapantallas", minutos(Ajustes.MINUTOS_SALVA), Ajustes.MINUTOS_SALVA.indexOf(aj.salvaMin)) { i ->
             aj.salvaMin = Ajustes.MINUTOS_SALVA[i]
         }
