@@ -133,12 +133,18 @@ object Pap {
 
     val AVISOS = listOf(0, 3, 5)
 
-    val SONIDOS = listOf("La activa", "Ninguna", "Las dos")
+    /** Qué parte suena: la 1, la 2, las dos o ninguna. Los nombres siguen al reparto. */
+    fun sonidos(reparto: Int) = when {
+        esPip(reparto) -> listOf("Grande", "Pequeña", "Las dos", "Apagado")
+        reparto == 3 -> listOf("Arriba", "Abajo", "Las dos", "Apagado")
+        else -> listOf("Izquierda", "Derecha", "Las dos", "Apagado")
+    }
 
-    fun suena(aj: Ajustes, parte: Int) = when (aj.papSonido.coerceIn(0, 2)) {
-        1 -> false
+    fun suena(aj: Ajustes, parte: Int) = when (aj.papSonido.coerceIn(0, 3)) {
+        0 -> parte == 1
+        1 -> parte == 2
         2 -> true
-        else -> aj.papParte == parte
+        else -> false
     }
 
     /**

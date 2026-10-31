@@ -38,7 +38,7 @@ class SelectorPap : Activity() {
         lienzo = Lienzo(this, r1, r2, aj.colorSel, aj.papReparto == 3)
         lienzo.marca = Marca(Marca.PARTE, aj.papParte.coerceIn(1, 2))
         pintarNombres()
-        lienzo.sonido = Pap.SONIDOS[aj.papSonido.coerceIn(0, 2)]
+        lienzo.sonido = Pap.sonidos(aj.papReparto)[aj.papSonido.coerceIn(0, 3)]
         lienzo.modo = Pap.REPARTOS.getOrElse(aj.papReparto) { "" }
         setContentView(lienzo)
         // No quita el foco a la app de debajo (algunas, como TDT Live, se van a su inicio si lo pierden):
@@ -155,9 +155,9 @@ class SelectorPap : Activity() {
                     Marca.CERRAR -> cerrarPap()
                     Marca.MODO -> { lienzo.lista = aj.papReparto.coerceIn(0, Pap.REPARTOS.size - 1); lienzo.invalidate() }
                     Marca.ALTAVOZ -> {
-                        // La activa → ninguna → las dos.
-                        aj.papSonido = (aj.papSonido.coerceIn(0, 2) + 1) % 3
-                        lienzo.sonido = Pap.SONIDOS[aj.papSonido]
+                        // Izquierda → derecha → las dos → apagado.
+                        aj.papSonido = (aj.papSonido.coerceIn(0, 3) + 1) % 4
+                        lienzo.sonido = Pap.sonidos(aj.papReparto)[aj.papSonido]
                         lienzo.invalidate()
                         Pap.aplicarSonido(this, aj)
                     }
