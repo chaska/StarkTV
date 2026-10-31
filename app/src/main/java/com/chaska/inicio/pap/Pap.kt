@@ -21,7 +21,11 @@ object Pap {
     private const val MODO_PANTALLA_COMPLETA = 1
     private const val MODO_VENTANA = 5
 
-    val REPARTOS = listOf("Mitad y mitad", "Grande y pequeña", "Pequeña y grande", "Arriba y abajo")
+    val REPARTOS = listOf("Mitad y mitad", "Grande y pequeña", "Pequeña y grande", "Arriba y abajo",
+        "PIP abajo derecha", "PIP abajo izquierda", "PIP arriba izquierda", "PIP arriba derecha")
+
+    /** 4-7: PIP. La parte 1 a pantalla completa y la 2 en una ventana pequeña en la esquina. */
+    fun esPip(reparto: Int) = reparto >= 4
 
     /** Lo que se puede poner en una parte: las fuentes de TV y todas las apps. */
     fun opciones(ctx: Context): List<Pair<String, String>> =
@@ -40,6 +44,14 @@ object Pap {
             1 -> Rect(0, 0, w * 7 / 10, h) to Rect(w * 7 / 10, 0, w, h)
             2 -> Rect(0, 0, w * 3 / 10, h) to Rect(w * 3 / 10, 0, w, h)
             3 -> Rect(0, 0, w, h / 2) to Rect(0, h / 2, w, h)
+            in 4..7 -> {
+                val pw = w * 32 / 100; val ph = pw * 9 / 16; val m = w / 40
+                val izq = reparto == 5 || reparto == 6
+                val arriba = reparto == 6 || reparto == 7
+                val x = if (izq) m else w - pw - m
+                val y = if (arriba) m else h - ph - m
+                Rect(0, 0, w, h) to Rect(x, y, x + pw, y + ph)
+            }
             else -> Rect(0, 0, w / 2, h) to Rect(w / 2, 0, w, h)
         }
     }
@@ -62,7 +74,8 @@ object Pap {
         try {
             act.startActivity(Intent(act, FondoPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), opciones(null, MODO_PANTALLA_COMPLETA))
         } catch (e: Exception) { Log.w(TAG, "PAP: sin fondo: $e") }
-        val orden = if (manejar == 1) listOf(1, 0) else listOf(0, 1)
+        // En PIP la ventana pequeña (parte 2) se abre la última para que quede encima.
+        val orden = if (manejar == 1 && !esPip(aj.papReparto)) listOf(1, 0) else listOf(0, 1)
         val objetivos = listOf(busqueda(aj.papIzq, 1) to Rect(r1), busqueda(aj.papDer, 2) to Rect(r2))
         aj.papActivo = true
         aj.papParte = manejar
@@ -106,7 +119,7 @@ object Pap {
                 // Cuando ya están las dos, la parte que se maneja se pone delante una vez (por si una app con
                 // trampolín, como YouTube, se coló por encima y se quedó con el mando).
                 val todas = objetivos.all { (b, _) -> buscar(lista, b) != null }
-                if (todas && !activaDelante) {
+                if (todas && !activaDelante && !(esPip(aj.papReparto) && manejar == 1)) {
                     activaDelante = true
                     buscar(lista, objetivos[manejar - 1].first)?.let { t -> principal.post { alFrente(ctx, t.id) } }
                 }
@@ -120,12 +133,11 @@ object Pap {
 
     val AVISOS = listOf(0, 3, 5)
 
-    fun sonidos(reparto: Int) =
-        if (reparto == 3) listOf("La activa", "Arriba", "Abajo", "Las dos") else listOf("La activa", "Izquierda", "Derecha", "Las dos")
+    val SONIDOS = listOf("La activa", "Ninguna", "Las dos")
 
-    fun suena(aj: Ajustes, parte: Int) = when (aj.papSonido) {
-        1, 2 -> aj.papSonido == parte
-        3 -> true
+    fun suena(aj: Ajustes, parte: Int) = when (aj.papSonido.coerceIn(0, 2)) {
+        1 -> false
+        2 -> true
         else -> aj.papParte == parte
     }
 

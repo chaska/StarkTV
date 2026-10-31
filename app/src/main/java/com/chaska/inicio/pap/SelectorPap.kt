@@ -38,7 +38,8 @@ class SelectorPap : Activity() {
         lienzo = Lienzo(this, r1, r2, aj.colorSel, aj.papReparto == 3)
         lienzo.marca = Marca(Marca.PARTE, aj.papParte.coerceIn(1, 2))
         pintarNombres()
-        lienzo.sonido = Pap.sonidos(aj.papReparto)[aj.papSonido.coerceIn(0, 3)]
+        lienzo.sonido = Pap.SONIDOS[aj.papSonido.coerceIn(0, 2)]
+        lienzo.modo = Pap.REPARTOS.getOrElse(aj.papReparto) { "" }
         setContentView(lienzo)
         // No quita el foco a la app de debajo (algunas, como TDT Live, se van a su inicio si lo pierden):
         // las teclas le llegan desde el servicio Teclas mientras está abierto.
@@ -60,6 +61,7 @@ class SelectorPap : Activity() {
     /** Teclas que le pasa el servicio Teclas (el selector no tiene foco). */
     fun tecla(e: KeyEvent): Boolean {
         val ok = e.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || e.keyCode == KeyEvent.KEYCODE_ENTER
+        if (lienzo.lista >= 0) return teclaLista(e)
         if (e.action == KeyEvent.ACTION_DOWN) {
             if (e.keyCode == KeyEvent.KEYCODE_BACK) {
                 if (e.repeatCount == 1) { atrasLargo = true; cerrarPap() }
@@ -73,6 +75,35 @@ class SelectorPap : Activity() {
             if (ok) return onKeyUp(e.keyCode, e)
         }
         return true
+    }
+
+    /** Lista de MODO abierta: ▲ ▼ eligen, OK aplica, Atrás la cierra sin cambiar nada. */
+    private fun teclaLista(e: KeyEvent): Boolean {
+        val n = Pap.REPARTOS.size + 1                 // + «Intercambiar lados»
+        if (e.action == KeyEvent.ACTION_DOWN) when (e.keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> { lienzo.lista = (lienzo.lista - 1 + n) % n; lienzo.invalidate() }
+            KeyEvent.KEYCODE_DPAD_DOWN -> { lienzo.lista = (lienzo.lista + 1) % n; lienzo.invalidate() }
+        }
+        if (e.action == KeyEvent.ACTION_UP) when (e.keyCode) {
+            KeyEvent.KEYCODE_BACK -> { lienzo.lista = -1; lienzo.invalidate() }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> aplicarModo(lienzo.lista)
+        }
+        return true
+    }
+
+    /** Un modo de reparto (las ventanas se recolocan solas) o intercambiar lo que va en cada parte. */
+    private fun aplicarModo(i: Int) {
+        lienzo.lista = -1
+        if (i == Pap.REPARTOS.size) {
+            aj.papIzq = aj.papDer.also { aj.papDer = aj.papIzq }
+            Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
+            finish(); overridePendingTransition(0, 0)
+            Pap.lanzar(this, aj, aj.papParte, cambio = true)
+            return
+        }
+        aj.papReparto = i
+        finish(); overridePendingTransition(0, 0)
+        Pap.lanzar(this, aj, if (Pap.esPip(i)) 2 else aj.papParte)
     }
 
     /** La tuerca otra vez con el selector abierto: se cierra y se sigue en la parte de antes. */
@@ -92,7 +123,9 @@ class SelectorPap : Activity() {
                     }
                     m.tipo == Marca.PARTE && !ab -> Marca(Marca.PARTE, if (paso > 0) 2 else 1)
                     m.tipo == Marca.CERRAR && paso < 0 -> Marca(Marca.ALTAVOZ, m.parte)
+                    m.tipo == Marca.CERRAR && paso > 0 -> Marca(Marca.MODO, m.parte)
                     m.tipo == Marca.ALTAVOZ && paso > 0 -> Marca(Marca.CERRAR, m.parte)
+                    m.tipo == Marca.MODO && paso < 0 -> Marca(Marca.CERRAR, m.parte)
                     else -> m
                 }
             }
@@ -103,7 +136,7 @@ class SelectorPap : Activity() {
                 else -> m
             }
             KeyEvent.KEYCODE_DPAD_UP -> when {
-                m.tipo == Marca.CERRAR || m.tipo == Marca.ALTAVOZ -> Marca(Marca.FUENTE, m.parte)
+                m.tipo == Marca.CERRAR || m.tipo == Marca.ALTAVOZ || m.tipo == Marca.MODO -> Marca(Marca.FUENTE, m.parte)
                 m.tipo == Marca.FUENTE -> Marca(Marca.PARTE, m.parte)
                 m.tipo == Marca.PARTE && ab && m.parte == 2 -> Marca(Marca.FUENTE, 1)
                 else -> m
@@ -120,10 +153,11 @@ class SelectorPap : Activity() {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 when (m.tipo) {
                     Marca.CERRAR -> cerrarPap()
+                    Marca.MODO -> { lienzo.lista = aj.papReparto.coerceIn(0, Pap.REPARTOS.size - 1); lienzo.invalidate() }
                     Marca.ALTAVOZ -> {
-                        // La que manejas → izquierda → derecha → las dos.
-                        aj.papSonido = (aj.papSonido + 1) % 4
-                        lienzo.sonido = Pap.sonidos(aj.papReparto)[aj.papSonido]
+                        // La activa → ninguna → las dos.
+                        aj.papSonido = (aj.papSonido.coerceIn(0, 2) + 1) % 3
+                        lienzo.sonido = Pap.SONIDOS[aj.papSonido]
                         lienzo.invalidate()
                         Pap.aplicarSonido(this, aj)
                     }
@@ -184,7 +218,7 @@ class SelectorPap : Activity() {
 
     /** Qué está marcado: una parte, la fuente de una parte o el círculo de cerrar. */
     private data class Marca(val tipo: Int, val parte: Int) {
-        companion object { const val PARTE = 0; const val FUENTE = 1; const val CERRAR = 2; const val ALTAVOZ = 3 }
+        companion object { const val PARTE = 0; const val FUENTE = 1; const val CERRAR = 2; const val ALTAVOZ = 3; const val MODO = 4 }
     }
 
     /** Dibuja los dos recuadros, la fuente bajo cada uno, el círculo con la X y la leyenda. */
@@ -195,6 +229,9 @@ class SelectorPap : Activity() {
             set(v) { field = v; invalidate() }
         var nombres: List<String> = listOf("", "")
         var sonido = ""
+        var modo = ""
+        /** Lista de MODO abierta: índice marcado; -1 cerrada. */
+        var lista = -1
         private val pMarco = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 4 * d }
         private val pHalo = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE; strokeWidth = 10 * d; maskFilter = BlurMaskFilter(12 * d, BlurMaskFilter.Blur.NORMAL)
@@ -251,6 +288,19 @@ class SelectorPap : Activity() {
             c.drawArc(RectF(ax - k * .2f, cy - k * .9f, ax + k * 1.4f, cy + k * .9f), -50f, 100f, false, pX)
             pFuente.color = Color.WHITE
             c.drawText(sonido, ax, cy - rc - 8 * d, pFuente)
+            // MODO, a la derecha de la X: reparto, PIP e intercambiar.
+            val mx = cx + 74 * d
+            val enM = marca.tipo == Marca.MODO
+            if (enM) { pHalo.color = conAlfa(sel, 0xC0); c.drawCircle(mx, cy, rc, pHalo) }
+            pRelleno.color = if (enM) sel else 0xCC1A1D26.toInt()
+            c.drawCircle(mx, cy, rc, pRelleno)
+            pX.color = if (enM) Color.BLACK else sel
+            val q = rc * .45f
+            c.drawRoundRect(RectF(mx - q, cy - q * .7f, mx + q, cy + q * .7f), 3 * d, 3 * d, pX)
+            c.drawLine(mx, cy - q * .7f, mx, cy + q * .7f, pX)
+            pFuente.color = Color.WHITE
+            c.drawText("Modo", mx, cy - rc - 8 * d, pFuente)
+            if (lista >= 0) dibujarLista(c, mx, cy - rc - 30 * d)
             // Leyenda.
             val flechas = if (arribaAbajo) "▲ ▼" else "◀ ▶"
             val texto = "$flechas elige · ▼ cambia la fuente · OK aplica · Tuerca: volver · Mantén la tuerca o pulsa la X: salir"
@@ -258,6 +308,27 @@ class SelectorPap : Activity() {
             val w = pTexto.measureText(texto) / 2 + 16 * d
             c.drawRoundRect(cx - w, ty - 22 * d, cx + w, ty + 10 * d, 14 * d, 14 * d, pFondoTexto)
             c.drawText(texto, cx, ty, pTexto)
+        }
+
+        /** Lista de MODO encima del círculo: los repartos y «Intercambiar lados». */
+        private fun dibujarLista(c: Canvas, cx: Float, abajo: Float) {
+            val items = Pap.REPARTOS + "Intercambiar lados"
+            val alto = 34 * d
+            val ancho = 260 * d
+            val arriba = abajo - alto * items.size - 16 * d
+            val x = (cx - ancho / 2).coerceAtMost(width - ancho - 16 * d)
+            pFondoTexto.color = 0xE6141823.toInt()
+            c.drawRoundRect(RectF(x, arriba, x + ancho, abajo), 16 * d, 16 * d, pFondoTexto)
+            pFondoTexto.color = 0xB3000000.toInt()
+            items.forEachIndexed { i, t ->
+                val y = arriba + 8 * d + i * alto
+                if (i == lista) {
+                    pRelleno.color = sel
+                    c.drawRoundRect(RectF(x + 6 * d, y, x + ancho - 6 * d, y + alto - 4 * d), 12 * d, 12 * d, pRelleno)
+                }
+                pFuente.color = if (i == lista) Color.BLACK else if (t == modo) sel else Color.WHITE
+                c.drawText(t, x + ancho / 2, y + alto * .62f, pFuente)
+            }
         }
 
         /** «◀ YouTube ▶» abajo dentro de la parte; brilla cuando está marcada. */
