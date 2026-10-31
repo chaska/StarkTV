@@ -6,6 +6,11 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Para volver a encender el servicio de la tuerca tras cada actualización (Android lo apaga).
+         Se concede una vez por adb: pm grant com.chaska.inicio android.permission.WRITE_SECURE_SETTINGS -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <!-- Lista de canales de la TDT para la ventanita (permiso normal: no hay que concederlo). -->
     <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />
 

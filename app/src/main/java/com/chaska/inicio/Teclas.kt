@@ -37,6 +37,26 @@ class Teclas : AccessibilityService() {
 
     companion object {
         private const val TAG = "InicioTV"
+
+        /**
+         * Android apaga el servicio al actualizar la app. Si tenemos WRITE_SECURE_SETTINGS (concedido por adb),
+         * se vuelve a encender solo, respetando los demás servicios de accesibilidad que haya.
+         */
+        fun asegurarActivo(ctx: android.content.Context) {
+            if (ctx.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
+            val cr = ctx.contentResolver
+            val nuestro = "${ctx.packageName}/${Teclas::class.java.name}"
+            val actuales = android.provider.Settings.Secure.getString(cr, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+                ?.split(':')?.filter { it.isNotBlank() } ?: emptyList()
+            if (actuales.any { it == nuestro || it == "${ctx.packageName}/.Teclas" }) return
+            try {
+                android.provider.Settings.Secure.putString(cr, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, (actuales + nuestro).joinToString(":"))
+                android.provider.Settings.Secure.putInt(cr, android.provider.Settings.Secure.ACCESSIBILITY_ENABLED, 1)
+                Log.i(TAG, "servicio de la tuerca reactivado")
+            } catch (e: Exception) {
+                Log.w(TAG, "no se pudo reactivar el servicio de la tuerca: $e")
+            }
+        }
         // La tuerca del mando Thomson llega como BUTTON_14 (201, scan 384); SETTINGS por si otro mando.
         val TECLAS_AJUSTES = setOf(KeyEvent.KEYCODE_BUTTON_14, KeyEvent.KEYCODE_SETTINGS)
     }

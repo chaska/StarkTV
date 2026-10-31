@@ -104,6 +104,7 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        Teclas.asegurarActivo(this)
         swPorDefecto?.encendido = esPorDefecto()
         aplicar()
         fondo.mostrar(aj.fondo)
