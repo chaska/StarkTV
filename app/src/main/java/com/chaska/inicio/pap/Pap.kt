@@ -76,6 +76,7 @@ object Pap {
             catch (e: Exception) { Log.w(TAG, "PAP: no se pudo abrir $clave: $e") }
         }
         colocar(act.applicationContext, aj, objetivos, manejar)
+        aplicarSonido(act.applicationContext, aj)
         if (nuevo && aj.papAviso > 0) avisar(act.applicationContext, aj.papAviso)
     }
 
@@ -118,6 +119,27 @@ object Pap {
     }
 
     val AVISOS = listOf(0, 3, 5)
+
+    fun sonidos(reparto: Int) =
+        if (reparto == 3) listOf("La activa", "Arriba", "Abajo", "Las dos") else listOf("La activa", "Izquierda", "Derecha", "Las dos")
+
+    fun suena(aj: Ajustes, parte: Int) = when (aj.papSonido) {
+        1, 2 -> aj.papSonido == parte
+        3 -> true
+        else -> aj.papParte == parte
+    }
+
+    /**
+     * Qué parte suena. La TV (visor) se silencia ella misma; a las apps se les quita o devuelve por adb
+     * el permiso de reproducir sonido (appops PLAY_AUDIO). Todo sale por la misma salida: altavoces o Bluetooth.
+     */
+    fun aplicarSonido(ctx: Context, aj: Ajustes) {
+        for ((parte, clave) in listOf(1 to aj.papIzq, 2 to aj.papDer)) {
+            val si = suena(aj, parte)
+            if (clave.startsWith(TV)) Visor.abiertos.filter { it.parte == parte }.forEach { it.sonido(si) }
+            else Adb.enSegundoPlano(ctx, "appops set $clave PLAY_AUDIO ${if (si) "allow" else "ignore"}")
+        }
+    }
 
     /** Al empezar: cómo se maneja el PAP. Android solo deja avisos de ~2 s o ~3,5 s: 3 s = uno largo, 5 s = largo + corto. */
     private fun avisar(ctx: Context, segundos: Int) {
@@ -166,6 +188,7 @@ object Pap {
         FondoPap.actual?.finishAndRemoveTask()
         SelectorPap.actual?.finish()
         val app = ctx.applicationContext
+        apps.forEach { Adb.enSegundoPlano(app, "appops set $it PLAY_AUDIO allow") }      // devolverles el sonido
         Thread {
             Adb.tareas(app)?.filter { t -> t.modo == "freeform" && apps.any { t.afinidad.startsWith(it) } }
                 ?.forEach { Adb.shell(app, "am stack remove ${it.id}") }

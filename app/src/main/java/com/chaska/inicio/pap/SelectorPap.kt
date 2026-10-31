@@ -38,7 +38,11 @@ class SelectorPap : Activity() {
         lienzo = Lienzo(this, r1, r2, aj.colorSel, aj.papReparto == 3)
         lienzo.marca = Marca(Marca.PARTE, aj.papParte.coerceIn(1, 2))
         pintarNombres()
+        lienzo.sonido = Pap.sonidos(aj.papReparto)[aj.papSonido.coerceIn(0, 3)]
         setContentView(lienzo)
+        // No quita el foco a la app de debajo (algunas, como TDT Live, se van a su inicio si lo pierden):
+        // las teclas le llegan desde el servicio Teclas mientras está abierto.
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
     }
 
     override fun onResume() { super.onResume(); actual = this }
@@ -50,6 +54,29 @@ class SelectorPap : Activity() {
         lienzo.nombres = elegida.map { ops.getOrNull(it)?.second ?: "" }
         lienzo.invalidate()
     }
+
+    private var atrasLargo = false
+
+    /** Teclas que le pasa el servicio Teclas (el selector no tiene foco). */
+    fun tecla(e: KeyEvent): Boolean {
+        val ok = e.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || e.keyCode == KeyEvent.KEYCODE_ENTER
+        if (e.action == KeyEvent.ACTION_DOWN) {
+            if (e.keyCode == KeyEvent.KEYCODE_BACK) {
+                if (e.repeatCount == 1) { atrasLargo = true; cerrarPap() }
+                return true
+            }
+            if (ok) return true
+            return onKeyDown(e.keyCode, e)
+        }
+        if (e.action == KeyEvent.ACTION_UP) {
+            if (e.keyCode == KeyEvent.KEYCODE_BACK) { if (!atrasLargo) volver(aj.papParte); atrasLargo = false; return true }
+            if (ok) return onKeyUp(e.keyCode, e)
+        }
+        return true
+    }
+
+    /** La tuerca otra vez con el selector abierto: se cierra y se sigue en la parte de antes. */
+    fun seguir() = volver(aj.papParte)
 
     override fun onKeyDown(code: Int, e: KeyEvent): Boolean {
         val m = lienzo.marca
@@ -64,6 +91,8 @@ class SelectorPap : Activity() {
                         pintarNombres(); m
                     }
                     m.tipo == Marca.PARTE && !ab -> Marca(Marca.PARTE, if (paso > 0) 2 else 1)
+                    m.tipo == Marca.CERRAR && paso < 0 -> Marca(Marca.ALTAVOZ, m.parte)
+                    m.tipo == Marca.ALTAVOZ && paso > 0 -> Marca(Marca.CERRAR, m.parte)
                     else -> m
                 }
             }
@@ -74,34 +103,30 @@ class SelectorPap : Activity() {
                 else -> m
             }
             KeyEvent.KEYCODE_DPAD_UP -> when {
-                m.tipo == Marca.CERRAR -> Marca(Marca.FUENTE, m.parte)
+                m.tipo == Marca.CERRAR || m.tipo == Marca.ALTAVOZ -> Marca(Marca.FUENTE, m.parte)
                 m.tipo == Marca.FUENTE -> Marca(Marca.PARTE, m.parte)
                 m.tipo == Marca.PARTE && ab && m.parte == 2 -> Marca(Marca.FUENTE, 1)
                 else -> m
             }
-            KeyEvent.KEYCODE_BACK -> { e.startTracking(); return true }
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> return true
-            else -> return super.onKeyDown(code, e)
+            else -> return true
         }
         if (nueva != null) lienzo.marca = nueva
         return true
     }
 
-    override fun onKeyLongPress(code: Int, e: KeyEvent): Boolean {
-        if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_HOME) { cerrarPap(); return true }
-        return super.onKeyLongPress(code, e)
-    }
-
     override fun onKeyUp(code: Int, e: KeyEvent): Boolean {
         val m = lienzo.marca
         when (code) {
-            KeyEvent.KEYCODE_BACK -> {
-                if (!e.isCanceled) volver(aj.papParte)      // Atrás corto: sigue como estaba
-                return true
-            }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 when (m.tipo) {
                     Marca.CERRAR -> cerrarPap()
+                    Marca.ALTAVOZ -> {
+                        // La que manejas → izquierda → derecha → las dos.
+                        aj.papSonido = (aj.papSonido + 1) % 4
+                        lienzo.sonido = Pap.sonidos(aj.papReparto)[aj.papSonido]
+                        lienzo.invalidate()
+                        Pap.aplicarSonido(this, aj)
+                    }
                     Marca.FUENTE -> aplicarFuente(m.parte)
                     else -> volver(m.parte)
                 }
@@ -134,6 +159,7 @@ class SelectorPap : Activity() {
             return
         }
         aj.papParte = parte
+        Pap.aplicarSonido(this, aj)
         val b = Pap.busqueda(if (parte == 1) aj.papIzq else aj.papDer, parte)
         Thread {
             val t = Adb.tareas(this)?.let { Pap.buscar(it, b) }
@@ -158,7 +184,7 @@ class SelectorPap : Activity() {
 
     /** Qué está marcado: una parte, la fuente de una parte o el círculo de cerrar. */
     private data class Marca(val tipo: Int, val parte: Int) {
-        companion object { const val PARTE = 0; const val FUENTE = 1; const val CERRAR = 2 }
+        companion object { const val PARTE = 0; const val FUENTE = 1; const val CERRAR = 2; const val ALTAVOZ = 3 }
     }
 
     /** Dibuja los dos recuadros, la fuente bajo cada uno, el círculo con la X y la leyenda. */
@@ -168,6 +194,7 @@ class SelectorPap : Activity() {
         var marca = Marca(Marca.PARTE, 1)
             set(v) { field = v; invalidate() }
         var nombres: List<String> = listOf("", "")
+        var sonido = ""
         private val pMarco = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 4 * d }
         private val pHalo = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE; strokeWidth = 10 * d; maskFilter = BlurMaskFilter(12 * d, BlurMaskFilter.Blur.NORMAL)
@@ -208,9 +235,25 @@ class SelectorPap : Activity() {
             val x = rc * .38f
             c.drawLine(cx - x, cy - x, cx + x, cy + x, pX)
             c.drawLine(cx + x, cy - x, cx - x, cy + x, pX)
+            // Altavoz, a la izquierda de la X: qué parte suena.
+            val ax = cx - 74 * d
+            val enA = marca.tipo == Marca.ALTAVOZ
+            if (enA) { pHalo.color = conAlfa(sel, 0xC0); c.drawCircle(ax, cy, rc, pHalo) }
+            pRelleno.color = if (enA) sel else 0xCC1A1D26.toInt()
+            c.drawCircle(ax, cy, rc, pRelleno)
+            pX.color = if (enA) Color.BLACK else sel
+            val k = rc * .3f
+            val cuerpo = android.graphics.Path().apply {
+                moveTo(ax - k * 1.3f, cy - k * .5f); lineTo(ax - k * .5f, cy - k * .5f); lineTo(ax + k * .4f, cy - k * 1.2f)
+                lineTo(ax + k * .4f, cy + k * 1.2f); lineTo(ax - k * .5f, cy + k * .5f); lineTo(ax - k * 1.3f, cy + k * .5f); close()
+            }
+            c.drawPath(cuerpo, pX)
+            c.drawArc(RectF(ax - k * .2f, cy - k * .9f, ax + k * 1.4f, cy + k * .9f), -50f, 100f, false, pX)
+            pFuente.color = Color.WHITE
+            c.drawText(sonido, ax, cy - rc - 8 * d, pFuente)
             // Leyenda.
             val flechas = if (arribaAbajo) "▲ ▼" else "◀ ▶"
-            val texto = "$flechas elige · ▼ cambia la fuente · OK aplica · Para salir del PAP, mantén la tuerca o pulsa la X"
+            val texto = "$flechas elige · ▼ cambia la fuente · OK aplica · Tuerca: volver · Mantén la tuerca o pulsa la X: salir"
             val ty = height - 22 * d
             val w = pTexto.measureText(texto) / 2 + 16 * d
             c.drawRoundRect(cx - w, ty - 22 * d, cx + w, ty + 10 * d, 14 * d, 14 * d, pFondoTexto)

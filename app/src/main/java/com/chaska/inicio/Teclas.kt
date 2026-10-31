@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import com.chaska.inicio.pap.Pap
+import com.chaska.inicio.pap.SelectorPap
 
 /**
  * Servicio de accesibilidad que recoge la tecla de ajustes (la tuerca) del mando antes que el servicio
@@ -28,11 +29,18 @@ class Teclas : AccessibilityService() {
             Log.i(TAG, "tecla ${e.keyCode} ${KeyEvent.keyCodeToString(e.keyCode)} scan=${e.scanCode} delante=$delante")
         // Con el PAP en marcha, Android TV no vuelve al inicio con la tecla Inicio (intenta abrir
         // «todas las apps» y falla). Inicio corto abre el selector; mantenido, sale del PAP.
+        // Selector del PAP abierto (no tiene foco, para no molestar a la app de debajo): las teclas van a él.
+        val selector = SelectorPap.actual
+        if (selector != null && SelectorPap.visible && e.keyCode !in TECLAS_AJUSTES && e.keyCode !in TECLAS_SISTEMA)
+            return selector.tecla(e)
         // Durante el PAP la tuerca cambia de parte (abre el selector) y mantenida cierra el PAP.
         // Es la tecla que llega siempre: Inicio no llega si una app tiene un vídeo a pantalla completa.
         if (e.keyCode in TECLAS_AJUSTES && Pap.activo(Ajustes(this))) {
             if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) { largo = true; Pap.cerrar(this, Ajustes(this)) }
-            if (e.action == KeyEvent.ACTION_UP) { if (!largo) Pap.selector(this); largo = false }
+            if (e.action == KeyEvent.ACTION_UP) {
+                if (!largo) { if (selector != null && SelectorPap.visible) selector.seguir() else Pap.selector(this) }
+                largo = false
+            }
             return true
         }
         if (e.keyCode == KeyEvent.KEYCODE_HOME && Pap.activo(Ajustes(this))) {
@@ -75,5 +83,8 @@ class Teclas : AccessibilityService() {
         }
         // La tuerca del mando Thomson llega como BUTTON_14 (201, scan 384); SETTINGS por si otro mando.
         val TECLAS_AJUSTES = setOf(KeyEvent.KEYCODE_BUTTON_14, KeyEvent.KEYCODE_SETTINGS)
+        /** Teclas que nunca se quedan en el selector. */
+        private val TECLAS_SISTEMA = setOf(KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN,
+            KeyEvent.KEYCODE_VOLUME_MUTE, KeyEvent.KEYCODE_POWER, KeyEvent.KEYCODE_HOME)
     }
 }

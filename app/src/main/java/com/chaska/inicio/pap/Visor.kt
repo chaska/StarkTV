@@ -13,16 +13,15 @@ import android.widget.FrameLayout
  * Suena solo cuando es la mitad que manejas (tiene el foco). CH+/CH− cambian de canal con Antena.
  * Hay dos (izquierda/derecha) con tareas distintas para poder estar abiertos a la vez.
  */
-open class Visor(private val parte: Int) : Activity() {
+open class Visor(val parte: Int) : Activity() {
     private lateinit var ventana: VentanaTv
     private val aj by lazy { Ajustes(this) }
 
-    /** Ajuste «Sonido» del PAP. Solo manda en las partes de TV: las apps suenan siempre. */
-    private fun suena(foco: Boolean) = when (aj.papSonido) {
-        1, 2 -> aj.papSonido == parte
-        3 -> true
-        else -> foco
-    }
+    /** Ajuste «Sonido» del PAP (la que manejas, una parte o las dos). */
+    @Suppress("UNUSED_PARAMETER")
+    private fun suena(foco: Boolean) = Pap.suena(aj, parte)
+
+    fun sonido(con: Boolean) = ventana.sonido(con)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,10 +33,19 @@ open class Visor(private val parte: Int) : Activity() {
             elevation = 0f
             clipToOutline = false
         }
-        setContentView(FrameLayout(this).apply {
+        // La imagen en 16:9 centrada (bandas negras), sin estirarla a la forma de la mitad.
+        val raiz = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
-            addView(ventana, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-        })
+            addView(ventana, FrameLayout.LayoutParams(0, 0, android.view.Gravity.CENTER))
+        }
+        raiz.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
+            val w = r - l; val h = b - t
+            var vw = w; var vh = w * 9 / 16
+            if (vh > h) { vh = h; vw = h * 16 / 9 }
+            val lp = ventana.layoutParams as FrameLayout.LayoutParams
+            if (lp.width != vw || lp.height != vh) raiz.post { lp.width = vw; lp.height = vh; ventana.layoutParams = lp }
+        }
+        setContentView(raiz)
         abiertos += this
     }
 
