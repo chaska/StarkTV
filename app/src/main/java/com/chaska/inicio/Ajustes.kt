@@ -30,6 +30,7 @@ class Ajustes(ctx: Context) {
     var papDer by texto("pap_der", "com.google.android.youtube.tv")
     var papActivo by booleano("pap_activo", false)
     var papBoton by booleano("pap_boton", true)
+    var papParte by entero("pap_parte", 1)       // parte que se maneja (1 o 2)
     var papSonido by entero("pap_sonido", 0)     // 0 la que manejas, 1 parte 1, 2 parte 2, 3 las dos
     var relojPos by entero("reloj_pos", 0)      // 0 automático (lado libre), 1 izquierda, 2 derecha
     var rotarMin by entero("rotar_min", 0)      // 0 = no cambiar el fondo solo

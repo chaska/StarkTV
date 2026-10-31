@@ -59,6 +59,7 @@ object Pap {
         val partes = listOf(Triple(aj.papIzq, r1, VisorIzq::class.java), Triple(aj.papDer, r2, VisorDer::class.java))
         val orden = if (manejar == 1) listOf(1, 0) else listOf(0, 1)
         aj.papActivo = true
+        aj.papParte = manejar
         for (i in orden) {
             val (clave, rect, visor) = partes[i]
             val intent = if (clave.startsWith(TV))

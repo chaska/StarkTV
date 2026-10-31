@@ -850,23 +850,14 @@ class MainActivity : Activity() {
         (g.getChildAt(aj.tvFuente * 2) ?: g.getChildAt(0))?.requestFocus()
     }
 
-    /** Con el PAP en marcha, Inicio enseña esto en vez de quedarse en el launcher. */
+    /**
+     * Con el PAP en marcha, Inicio vuelve a poner delante las dos partes y abre encima el selector
+     * (recuadro sobre la parte activa, ◀ ▶ para cambiar, X para cerrar).
+     */
     private fun panelPap() {
-        val sel = aj.colorSel
-        val panel = Vidrio.panel(this, "PAP", dp(320))
-        val g = grupo()
-        val (n1, n2) = if (aj.papReparto == 3) "arriba" to "abajo" else "izquierda" to "derecha"
-        fun op(t: String, accion: () -> Unit) = Fila(this, t, sel).apply {
-            valor.text = "›"
-            setOnClickListener { dialogo?.dismiss(); accion() }
-        }.also { anadirAGrupo(g, it) }
-        val primera = op("Manejar $n1 · ${Pap.nombre(this, aj.papIzq)}") { Pap.lanzar(this, aj, 1) }
-        op("Manejar $n2 · ${Pap.nombre(this, aj.papDer)}") { Pap.lanzar(this, aj, 2) }
-        op("Intercambiar lados") { aj.papIzq = aj.papDer.also { aj.papDer = aj.papIzq }; Pap.lanzar(this, aj, 1) }
-        op("Salir del PAP") { Pap.salir(aj); aplicar() }
-        panel.addView(g, filaLp())
-        dialogo = Vidrio.dialogo(this, panel, aj)
-        primera.requestFocus()
+        Pap.lanzar(this, aj, aj.papParte)
+        startActivity(Intent(this, SelectorPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), Pap.pantallaCompleta())
+        overridePendingTransition(0, 0)
     }
 
     /** Grupo de filas con fondo redondeado, como las tarjetas de ajustes del iPhone. */
