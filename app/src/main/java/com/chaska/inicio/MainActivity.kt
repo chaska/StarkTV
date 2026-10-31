@@ -205,6 +205,8 @@ class MainActivity : Activity() {
         fecha = TextClock(this).apply {
             format24Hour = "EEEE, d 'de' MMMM"; format12Hour = format24Hour
             textSize = 14f
+            isSingleLine = true
+            gravity = Gravity.CENTER_HORIZONTAL
             setTextColor(0xC8FFFFFF.toInt())
             setShadowLayer(dp(6).toFloat(), 0f, dp(1).toFloat(), 0x99000000.toInt())
         }.conFuente()
@@ -219,9 +221,10 @@ class MainActivity : Activity() {
             }
             visibility = View.GONE
         }.conFuente()
-        bloqueReloj.addView(hora)
-        bloqueReloj.addView(fecha)
-        bloqueReloj.addView(tiempo, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+        hora.gravity = Gravity.CENTER_HORIZONTAL
+        bloqueReloj.addView(hora, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        bloqueReloj.addView(fecha, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        bloqueReloj.addView(tiempo, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6); gravity = Gravity.CENTER_HORIZONTAL })
         contenido.addView(bloqueReloj)
 
         ventana = VentanaTv(this, aj.colorSel, aj.p).apply {
@@ -341,7 +344,7 @@ class MainActivity : Activity() {
         botonPap.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, lado).apply {
             topMargin = dp(16); marginStart = dp(78); marginEnd = dp(78)
         }
-        bloqueReloj.gravity = if (c.relojIzq) Gravity.START else Gravity.END
+        bloqueReloj.gravity = Gravity.CENTER_HORIZONTAL
         bloqueReloj.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             Gravity.TOP or if (c.relojIzq) Gravity.START else Gravity.END).apply {
             topMargin = dp(22)
@@ -952,7 +955,8 @@ class MainActivity : Activity() {
     }
 
     private fun nombreFondo(clave: String): String = when {
-        clave.isEmpty() -> "Ninguno"
+        clave.isEmpty() -> "Sin fondo"
+        CatalogoFondos.nombreIncluido(clave) != null -> CatalogoFondos.nombreIncluido(clave)!!
         clave.endsWith("/index.html") -> File(clave).parentFile?.name ?: clave
         else -> clave.removePrefix("asset:").substringAfterLast('/').substringBeforeLast('.')
     }
@@ -993,8 +997,8 @@ class MainActivity : Activity() {
 
     private fun elegirFondo(listo: () -> Unit) {
         val fondos = CatalogoFondos.todos(this)
-        val ops = mutableListOf("Sin fondo (negro)")
-        ops += fondos.map { "${it.tipo.etiqueta} · ${it.nombre}" }
+        val ops = mutableListOf("Sin fondo")
+        ops += fondos.map { if (it.clave.startsWith("asset:")) it.nombre else "${it.tipo.etiqueta} · ${it.nombre}" }
         if (!Environment.isExternalStorageManager()) ops += "Sin permiso para leer /sdcard/Fondos (ver README)"
         elegir("Fondo", ops) { i ->
             val clave = when {

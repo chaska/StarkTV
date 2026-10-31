@@ -47,11 +47,18 @@ object CatalogoFondos {
         return lista
     }
 
+    /** Los fondos que trae la app, en este orden y con su nombre en Ajustes. */
+    val INCLUIDOS = listOf(
+        "castillo.webp" to "Castillo", "humo.html" to "Humo",
+        "particulas.html" to "Partículas", "halloween.html" to "Halloween - HTML5",
+    )
+
+    fun nombreIncluido(clave: String): String? = INCLUIDOS.firstOrNull { "asset:" + it.first == clave }?.second
+
     fun todos(ctx: Context): List<OpcionFondo> {
         val res = mutableListOf<OpcionFondo>()
-        ctx.assets.list("fondos")?.sorted()?.forEach { f ->
-            tipoDe(f)?.let { res += OpcionFondo("asset:$f", "Incluido · " + f.substringBeforeLast('.'), it) }
-        }
+        val hay = ctx.assets.list("fondos")?.toSet().orEmpty()
+        for ((f, nombre) in INCLUIDOS) if (f in hay) tipoDe(f)?.let { res += OpcionFondo("asset:$f", nombre, it) }
         for (dir in carpetas()) {
             // Una subcarpeta con index.html (y sus imágenes) también vale: Fondos/humo/index.html
             dir.listFiles()?.sortedBy { it.name.lowercase() }?.forEach { f ->
@@ -175,6 +182,9 @@ class Fondo(private val ctx: Context, private val capa: FrameLayout) {
             settings.allowFileAccess = true
             @Suppress("DEPRECATION")
             settings.allowFileAccessFromFileURLs = true // para que el HTML use imágenes de su misma carpeta
+            // Los fondos de la app (Halloween) leen los píxeles de su imagen para recortar el árbol y el agua.
+            @Suppress("DEPRECATION")
+            settings.allowUniversalAccessFromFileURLs = c.startsWith("asset:")
             webViewClient = WebViewClient()
         }
         web = w

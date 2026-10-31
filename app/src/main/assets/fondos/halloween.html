@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Halloween</title>
+<!--
+  Fondo de Stark TV: la imagen va aparte (halloween.webp, 1672x941) y aquí solo la animación.
+  Todo se mide en píxeles de la imagen y se pasa a pantalla con la misma cuenta que «cover»,
+  así cada luz cae en su sitio a cualquier tamaño. Capas, de atrás adelante:
+  imagen → nubes, cascadas, niebla y murciélagos → el árbol (recortado de la propia imagen) → luces.
+  30 fps y sin escalar por densidad: la TV tiene 1 GB de RAM.
+-->
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #03050b; }
+  #escena { position: fixed; inset: 0; will-change: transform; }
+  #bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="escena">
+  <img id="bg" src="halloween/halloween.webp" alt="">
+  <canvas id="fx"></canvas>
+  <canvas id="arbol"></canvas>
+  <canvas id="luz"></canvas>
+</div>
+<script>
+const IW = 1672, IH = 941, FPS = 30;
+const escena = document.getElementById('escena'), bg = document.getElementById('bg');
+const fxC = document.getElementById('fx'), arbolC = document.getElementById('arbol'), luzC = document.getElementById('luz');
+const x = fxC.getContext('2d'), xl = luzC.getContext('2d'), xa = arbolC.getContext('2d');
+let W, H, s, ox, oy, ultimo = 0, antes = 0, mascaraArbol = null;
+const R = (a, b) => a + Math.random() * (b - a);
+const lim = v => v < 0 ? 0 : v > 1 ? 1 : v;
+// De píxel de la imagen a píxel de pantalla (misma cuenta que object-fit: cover).
+const X = px => ox + px * s, Y = py => oy + py * s;
+
+function medir() {
+  W = innerWidth; H = innerHeight;
+  for (const c of [fxC, arbolC, luzC]) { c.width = W; c.height = H; }
+  s = Math.max(W / IW, H / IH); ox = (W - IW * s) / 2; oy = (H - IH * s) / 2;
+  pintarArbol();
+}
+
+// ---------- Medidas sobre la imagen (px de 1672x941) ----------
+const calabazas = [
+  { ojos: [[182, 700], [258, 714]], boca: [217, 757], r: 34, fase: 0 },    // grande, izquierda
+  { ojos: [[356, 764], [386, 764]], boca: [378, 790], r: 16, fase: 1.7 },  // mediana, izquierda
+  { ojos: [], boca: [618, 808], r: 14, fase: 3.1 },                        // pequeña, centro
+  { ojos: [[1443, 803], [1489, 803]], boca: [1463, 834], r: 26, fase: 4.4 }, // grande, derecha
+  { ojos: [], boca: [1352, 838], r: 14, fase: 5.6 },                       // pequeña, derecha
+];
+const farolillos = [[380, 338], [1482, 590]];
+const ventanas = [[1323, 386], [1253, 393], [1174, 329], [1138, 408], [1170, 393], [1248, 227], [1203, 322], [1329, 380], [1235, 399], [1290, 395]];
+// Cascadas: la de debajo del puente y la del castillo.
+const cascadas = [{ x: 780, y: 560, w: 145, h: 128, vel: .075 }, { x: 1340, y: 420, w: 68, h: 122, vel: .06 }];
+
+// ---------- Texturas hechas una vez al cargar ----------
+function azar(semilla) { return () => { semilla |= 0; semilla = semilla + 0x6D2B79F5 | 0; let t = Math.imul(semilla ^ semilla >>> 15, 1 | semilla); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+// Nubes con ruido fractal, que se repiten en horizontal sin costura.
+function textura(w, h, cx, cy, umbral, semilla, rgb) {
+  const rnd = azar(semilla), oct = 5, redes = [];
+  for (let o = 0; o < oct; o++) { const gx = cx << o, gy = (cy << o) + 1; redes.push({ gx, gy, v: Float32Array.from({ length: gx * gy }, rnd) }); }
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'), d = g.createImageData(w, h), p = d.data;
+  const suave = t => t * t * (3 - 2 * t);
+  for (let y = 0; y < h; y++) {
+    const env = Math.pow(Math.sin(Math.PI * (y + .5) / h), 1.3);
+    for (let xx = 0; xx < w; xx++) {
+      let n = 0, amp = .5, tot = 0;
+      for (const r of redes) {
+        const u = xx / w * r.gx, v = y / h * (r.gy - 1), i0 = Math.floor(u), j0 = Math.floor(v);
+        const fu = suave(u - i0), fv = suave(v - j0), i1 = (i0 + 1) % r.gx, j1 = Math.min(j0 + 1, r.gy - 1);
+        const a = r.v[j0 * r.gx + i0], b = r.v[j0 * r.gx + i1], cc = r.v[j1 * r.gx + i0], dd = r.v[j1 * r.gx + i1];
+        n += amp * ((a + (b - a) * fu) * (1 - fv) + (cc + (dd - cc) * fu) * fv); tot += amp; amp *= .5;
+      }
+      n /= tot;
+      const al = lim((n - umbral) / .28) * env, i = (y * w + xx) * 4;
+      p[i] = rgb[0]; p[i + 1] = rgb[1]; p[i + 2] = rgb[2]; p[i + 3] = al * al * 255;
+    }
+  }
+  g.putImageData(d, 0, 0); return c;
+}
+const capas = [
+  // nubes del cielo: grandes y lentas, otras más finas y algo más rápidas
+  { tex: textura(480, 200, 4, 2, .46, 7, [190, 202, 232]), y0: -30, alto: 400, ancho: 2100, vel: 5, a: .42 },
+  { tex: textura(400, 150, 6, 2, .5, 21, [210, 220, 245]), y0: 40, alto: 280, ancho: 1500, vel: 10, a: .28 },
+  // niebla baja, a ras del río y del puente
+  { tex: textura(480, 90, 6, 1, .42, 33, [185, 196, 226]), y0: 520, alto: 210, ancho: 2200, vel: -7, a: .3 },
+  { tex: textura(400, 80, 8, 1, .45, 47, [200, 210, 236]), y0: 640, alto: 190, ancho: 1600, vel: 12, a: .22 },
+];
+function pintarCapa(c, t) {
+  const tw = c.ancho * s, alto = c.alto * s, yy = Y(c.y0);
+  let off = (t / 1000 * c.vel * s) % tw; if (off < 0) off += tw;
+  x.globalAlpha = c.a;
+  for (let xx = ox - tw + off; xx < W; xx += tw) x.drawImage(c.tex, xx, yy, tw + 1, alto);
+  x.globalAlpha = 1;
+}
+
+// El árbol de delante: tronco y ramas son casi negros (azul < 15) y el cielo entre ellas es azul (> 25).
+function prepararArbol() {
+  const k = 2, w = IW / k, h = Math.round(IH / k);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.drawImage(bg, 0, 0, w, h);
+  const d = g.getImageData(0, 0, w, h), p = d.data;
+  for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) {
+    const ix = xx * k, iy = y * k;
+    const copa = Math.min(lim((930 - ix) / 70), lim((610 - iy) / 50));
+    const tronco = Math.min(lim((300 - ix) / 40), lim((720 - iy) / 40));
+    const i = (y * w + xx) * 4;
+    p[i + 3] = Math.max(copa, tronco) * lim((30 - p[i + 2]) / 16) * 255;
+  }
+  g.putImageData(d, 0, 0); mascaraArbol = c; pintarArbol();
+}
+function pintarArbol() {
+  if (!mascaraArbol || !W) return;
+  xa.clearRect(0, 0, W, H); xa.drawImage(mascaraArbol, ox, oy, IW * s, IH * s);
+}
+
+// Cascadas: rayas de agua que caen, recortadas a la forma blanca del agua de la imagen.
+function prepararCascadas() {
+  for (const r of cascadas) {
+    const m = document.createElement('canvas'); m.width = r.w; m.height = r.h;
+    const g = m.getContext('2d'); g.drawImage(bg, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+    const d = g.getImageData(0, 0, r.w, r.h), p = d.data;
+    for (let i = 0; i < p.length; i += 4) { const lum = (p[i] + p[i + 1] + p[i + 2]) / 3; p[i] = p[i + 1] = p[i + 2] = 255; p[i + 3] = lim((lum - 70) / 60) * 255; }
+    g.putImageData(d, 0, 0); r.mascara = m;
+    const tx = document.createElement('canvas'); tx.width = r.w; tx.height = r.h;
+    const gt = tx.getContext('2d'); gt.lineCap = 'round';
+    for (let n = 0; n < r.w * 1.4; n++) {
+      const sx = R(0, r.w), sy = R(0, r.h), largo = R(6, 26);
+      gt.strokeStyle = `rgba(236,244,255,${R(.15, .7)})`; gt.lineWidth = R(.6, 1.8);
+      for (const dy of [-r.h, 0, r.h]) { gt.beginPath(); gt.moveTo(sx, sy + dy); gt.lineTo(sx + R(-.5, .5), sy + dy + largo); gt.stroke(); }
+    }
+    r.tex = tx;
+    const tr = document.createElement('canvas'); tr.width = r.w; tr.height = r.h; r.trabajo = tr;
+    r.espuma = Array.from({ length: 12 }, () => ({ u: R(0, 1), vida: R(0, 1), vel: R(.12, .3) }));
+  }
+}
+function pintarCascadas(t, dt) {
+  for (const r of cascadas) {
+    const g = r.trabajo.getContext('2d');
+    g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, r.w, r.h);
+    const off = (t * r.vel) % r.h;
+    g.drawImage(r.tex, 0, off - r.h); g.drawImage(r.tex, 0, off);
+    g.globalCompositeOperation = 'destination-in'; g.drawImage(r.mascara, 0, 0);
+    x.globalCompositeOperation = 'screen'; x.globalAlpha = .75;
+    x.drawImage(r.trabajo, X(r.x), Y(r.y), r.w * s, r.h * s);
+    x.globalAlpha = 1;
+    // espuma que sube al pie de la cascada
+    for (const e of r.espuma) {
+      e.vida += e.vel * dt / 1000; if (e.vida > 1) { e.vida = 0; e.u = R(0, 1); }
+      const px = X(r.x + e.u * r.w), py = Y(r.y + r.h - 8 - e.vida * 30), rad = (6 + e.vida * 22) * s;
+      const gr = x.createRadialGradient(px, py, 0, px, py, rad), a = .16 * Math.sin(Math.PI * e.vida);
+      gr.addColorStop(0, `rgba(220,230,250,${a})`); gr.addColorStop(1, 'rgba(220,230,250,0)');
+      x.fillStyle = gr; x.beginPath(); x.arc(px, py, rad, 0, 6.283); x.fill();
+    }
+    x.globalCompositeOperation = 'source-over';
+  }
+}
+
+// ---------- Murciélagos (detrás del árbol) ----------
+const murcielagos = Array.from({ length: 10 }, () => ({ u: R(-100, IW + 100), v: R(40, 400), s: R(10, 22), vel: R(35, 90), p: R(0, 6.28) }));
+function murcielago(b, dt, t) {
+  b.u += b.vel * dt / 1000;
+  if (b.u > IW + 120) { b.u = -120; b.v = R(40, 400); }
+  const px = X(b.u), py = Y(b.v + Math.sin(t * .0015 + b.p) * 9), k = b.s * s / 16, ala = Math.sin(t * .012 + b.p);
+  x.save(); x.translate(px, py); x.scale(k, k); x.fillStyle = 'rgba(3,5,12,.94)';
+  x.beginPath(); x.moveTo(-2, 0); x.quadraticCurveTo(-12, -10 + ala * 7, -21, -7 + ala * 8); x.quadraticCurveTo(-20, 3, -11, 5);
+  x.quadraticCurveTo(-5, 8, -1, 3); x.lineTo(0, 5); x.lineTo(1, 3); x.quadraticCurveTo(6, 8, 11, 5);
+  x.quadraticCurveTo(20, 3, 21, -7 + ala * 8); x.quadraticCurveTo(12, -10 + ala * 7, 2, 0); x.closePath(); x.fill(); x.restore();
+}
+
+// ---------- Luces ----------
+function luz(ix, iy, r, rgb, a) {
+  const px = X(ix), py = Y(iy), rad = r * s;
+  const g = xl.createRadialGradient(px, py, 0, px, py, rad);
+  g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+  xl.fillStyle = g; xl.beginPath(); xl.arc(px, py, rad, 0, 6.283); xl.fill();
+}
+const chispas = Array.from({ length: 40 }, () => ({ u: R(0, IW), v: R(650, IH), r: R(1, 2.6), vel: R(10, 28), dx: R(-8, 8), a: R(.2, .6), p: R(0, 6.28) }));
+
+function fotograma(t) {
+  requestAnimationFrame(fotograma);
+  if (t - ultimo < 1000 / FPS) return;
+  const dt = Math.min(60, t - (antes || t)); antes = t; ultimo = t;
+  escena.style.transform = `translate(${Math.sin(t * .0001) * 3}px,${Math.cos(t * .00008) * 2}px) scale(1.012)`;
+  x.clearRect(0, 0, W, H);
+  pintarCapa(capas[0], t); pintarCapa(capas[1], t);
+  pintarCascadas(t, dt);
+  pintarCapa(capas[2], t); pintarCapa(capas[3], t);
+  murcielagos.forEach(b => murcielago(b, dt, t));
+
+  xl.clearRect(0, 0, W, H);
+  xl.globalCompositeOperation = 'screen';
+  // Calabazas: se encienden y se apagan, cada una a su ritmo, con parpadeo de vela.
+  for (const k of calabazas) {
+    const onda = .5 + .5 * Math.sin(t * .0016 + k.fase), vela = .85 + .15 * Math.sin(t * .021 + k.fase * 3);
+    const a = onda * onda * vela;
+    for (const [u, v] of k.ojos) { luz(u, v, k.r, '255,130,25', .85 * a); luz(u, v, k.r * .45, '255,215,110', .9 * a); }
+    luz(k.boca[0], k.boca[1], k.r * 1.7, '255,105,15', .7 * a);
+    luz(k.boca[0], k.boca[1], k.r * .8, '255,200,90', .75 * a);
+  }
+  farolillos.forEach(([u, v], i) => {
+    const f = .7 + .2 * Math.sin(t * .009 + i * 2) + .1 * Math.sin(t * .031 + i);
+    luz(u, v, 85, '255,150,50', .45 * f); luz(u, v, 18, '255,225,140', .9 * f);
+  });
+  ventanas.forEach(([u, v], i) => {
+    const f = .45 + .35 * Math.sin(t * .002 + i * 5.3) + .18 * Math.sin(t * .006 + i);
+    luz(u, v, 16, '255,140,45', Math.max(.08, .42 * f));
+  });
+  for (const p of chispas) {
+    p.v -= p.vel * dt / 1000; p.u += p.dx * dt / 1000;
+    if (p.v < 560) { p.v = IH + 5; p.u = R(0, IW); }
+    xl.fillStyle = `rgba(255,150,70,${p.a * (.45 + .55 * Math.sin(t * .002 + p.p)) * .6})`;
+    xl.beginPath(); xl.arc(X(p.u), Y(p.v), p.r * s, 0, 6.283); xl.fill();
+  }
+  xl.globalCompositeOperation = 'source-over';
+}
+
+addEventListener('resize', medir);
+function empezar() {
+  medir();
+  // Si el navegador no deja leer los píxeles de la imagen, sigue sin el árbol recortado ni el agua.
+  try { prepararArbol(); } catch (e) {}
+  try { prepararCascadas(); } catch (e) { cascadas.length = 0; }
+  requestAnimationFrame(fotograma);
+}
+if (bg.complete && bg.naturalWidth) empezar(); else bg.onload = empezar;
+</script>
+</body>
+</html>
