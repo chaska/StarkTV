@@ -14,6 +14,7 @@ import android.view.accessibility.AccessibilityEvent
  */
 class Teclas : AccessibilityService() {
     private var delante: String? = null
+    private var largo = false
 
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) e.packageName?.toString()?.let { delante = it }
@@ -24,6 +25,20 @@ class Teclas : AccessibilityService() {
     override fun onKeyEvent(e: KeyEvent): Boolean {
         if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0)
             Log.i(TAG, "tecla ${e.keyCode} ${KeyEvent.keyCodeToString(e.keyCode)} scan=${e.scanCode} delante=$delante")
+        // Con el PAP en marcha, Android TV no vuelve al inicio con la tecla Inicio (intenta abrir
+        // «todas las apps» y falla). Inicio corto abre el selector; mantenido, sale del PAP.
+        if (e.keyCode == KeyEvent.KEYCODE_HOME && Ajustes(this).papActivo) {
+            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) {
+                largo = true
+                Pap.salir(Ajustes(this))
+                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+            if (e.action == KeyEvent.ACTION_UP) {
+                if (!largo) startActivity(Intent(this, SelectorPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), Pap.pantallaCompleta())
+                largo = false
+            }
+            return true
+        }
         if (e.keyCode !in TECLAS_AJUSTES) return false
         val nuestro = delante == packageName || Ajustes(this).papActivo
         if (!nuestro) return false
