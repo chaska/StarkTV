@@ -45,6 +45,9 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
     private var canales: List<Canal> = emptyList()
     private var actual = -1
     private var entrada: String? = null
+    private var sintonizadores: List<String> = emptyList()
+    /** Sin lista de canales: se prueba por número de fila del canal (Live TV usa ~1500). */
+    private var idCanal = -1L
     private var intento = 0
     private val siguiente = Runnable { probarSinCanal() }
     private val vigia = Runnable { if (estado.visibility == View.VISIBLE) otroIntento() }
@@ -93,7 +96,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
 
     fun encender() {
         val tim = context.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
-        val sintonizadores = tim?.tvInputList?.filter { it.type == TvInputInfo.TYPE_TUNER }?.map { it.id }?.sorted() ?: emptyList()
+        sintonizadores = tim?.tvInputList?.filter { it.type == TvInputInfo.TYPE_TUNER }?.map { it.id }?.sorted() ?: emptyList()
         // El principal primero (HW0).
         entrada = sintonizadores.firstOrNull { it.endsWith("HW0") } ?: sintonizadores.firstOrNull()
         canales = leerCanales(sintonizadores.toSet())
@@ -104,6 +107,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
             sintonizar()
         } else if (entrada != null) {
             intento = 0
+            idCanal = prefs.getLong("tv_id", 1533)
             probarSinCanal()
         } else {
             estado.text = "Esta TV no deja ver el sintonizador"
@@ -116,9 +120,16 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         try { tv.reset() } catch (e: Exception) { }
     }
 
-    /** CH+ / CH−: devuelve false si no hay lista de canales. */
+    /** CH+ / CH−. Sin lista, va al número de fila de al lado. */
     fun cambiarCanal(paso: Int): Boolean {
-        if (canales.isEmpty()) return false
+        if (canales.isEmpty()) {
+            if (entrada == null) return false
+            idCanal = (idCanal + paso).coerceAtLeast(1)
+            prefs.edit().putLong("tv_id", idCanal).apply()
+            intento = 0
+            probarSinCanal()
+            return true
+        }
         actual = (actual + paso + canales.size) % canales.size
         sintonizar()
         return true
@@ -158,12 +169,17 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
     }
 
     private fun probarSinCanal() {
-        val id = entrada ?: return
-        val uri: Uri? = when (intento) {
-            0 -> null
-            1 -> TvContract.buildChannelUriForPassthroughInput(id)
+        removeCallbacks(vigia)
+        val hw0 = entrada ?: return
+        val hw1 = sintonizadores.firstOrNull { it != hw0 } ?: hw0
+        val (id, uri) = when (intento) {
+            0 -> hw0 to TvContract.buildChannelUri(idCanal)
+            1 -> hw1 to TvContract.buildChannelUri(idCanal)
+            2 -> hw0 to null
+            3 -> hw1 to TvContract.buildChannelUriForPassthroughInput(hw1)
             else -> { estado.visibility = View.VISIBLE; estado.text = "La TV no deja mostrar la TDT aquí"; return }
         }
+        rotulo.text = if (intento <= 1) "Canal $idCanal" else "TDT en directo"
         Log.i(TAG, "sin lista de canales: intento $intento en $id con $uri")
         try {
             tv.tune(id, uri)
