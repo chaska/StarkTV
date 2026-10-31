@@ -44,6 +44,7 @@ class MainActivity : Activity() {
     private lateinit var luces: Luces
     private lateinit var contenido: FrameLayout
     private lateinit var botonAjustes: TextView
+    private lateinit var botonPap: TextView
     private lateinit var hora: TextClock
     private lateinit var fecha: TextClock
     private lateinit var tiempo: TextView
@@ -187,23 +188,11 @@ class MainActivity : Activity() {
     // ---------- Construcción ----------
 
     private fun construirInicio() {
-        botonAjustes = TextView(this).apply {
-            contentDescription = "Ajustes"
-            setPadding(dp(10), dp(10), dp(10), dp(10))
-            setCompoundDrawablesRelative(icono(Icono.Tipo.AJUSTES, Color.WHITE, 22), null, null, null)
-            isFocusable = true
-            elevation = dp(6).toFloat()
-            setOnClickListener { abrirAjustes() }
-            setOnFocusChangeListener { v, f ->
-                v.animate().scaleX(if (f) 1.08f else 1f).scaleY(if (f) 1.08f else 1f)
-                    .translationY(if (f) -dp(3).toFloat() else 0f).setDuration(160).start()
-                v.elevation = dp(if (f) 14 else 6).toFloat()
-                v.outlineSpotShadowColor = if (f) aj.colorSel else Color.BLACK
-                v.outlineAmbientShadowColor = if (f) aj.colorSel else Color.BLACK
-                if (f) apuntarLuz(v, aj.colorSel, v.width / 2f, v.height / 2f)
-            }
-        }
+        botonAjustes = botonIcono(Icono.Tipo.AJUSTES, "Ajustes") { abrirAjustes() }
         contenido.addView(botonAjustes)
+        // PAP de un toque: si está parado lo empieza; si está en marcha, abre su panel.
+        botonPap = botonIcono(Icono.Tipo.PAP, "PAP") { if (aj.papActivo) panelPap() else Pap.lanzar(this, aj) }
+        contenido.addView(botonPap)
 
         bloqueReloj = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         hora = relojDegradado(40f)
@@ -232,6 +221,9 @@ class MainActivity : Activity() {
         ventana = VentanaTv(this, aj.colorSel, aj.p).apply {
             visibility = View.GONE
             setOnClickListener { abrirTdt() }
+            // OK mantenido: elegir fuente y sonido sin entrar en Ajustes.
+            isLongClickable = true
+            setOnLongClickListener { menuVentana(); true }
         }
         contenido.addView(ventana)
 
@@ -322,16 +314,20 @@ class MainActivity : Activity() {
 
     private fun colocarCabecera(c: Cabecera) {
         val mismoLado = c.relojIzq == c.botonIzq
-        botonAjustes.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-            Gravity.TOP or if (c.botonIzq) Gravity.START else Gravity.END).apply {
+        val lado = Gravity.TOP or if (c.botonIzq) Gravity.START else Gravity.END
+        botonAjustes.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, lado).apply {
             topMargin = dp(16); marginStart = dp(22); marginEnd = dp(22)
+        }
+        // El botón PAP, junto a la tuerca (hacia dentro de la pantalla).
+        botonPap.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, lado).apply {
+            topMargin = dp(16); marginStart = dp(78); marginEnd = dp(78)
         }
         bloqueReloj.gravity = if (c.relojIzq) Gravity.START else Gravity.END
         bloqueReloj.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             Gravity.TOP or if (c.relojIzq) Gravity.START else Gravity.END).apply {
             topMargin = dp(22)
             // Si comparte esquina con el botón, se aparta para dejarle sitio.
-            val borde = dp(if (mismoLado) 84 else 40)
+            val borde = dp(if (mismoLado) (if (aj.papBoton) 140 else 84) else 40)
             marginStart = borde; marginEnd = borde
         }
     }
@@ -402,6 +398,10 @@ class MainActivity : Activity() {
         fecha.visibility = hora.visibility
         tiempo.visibility = if (aj.tiempo && textoTiempo != null) View.VISIBLE else View.GONE
         botonAjustes.background = fondoBoton()
+        botonPap.background = fondoBoton()
+        botonPap.visibility = if (aj.papBoton) View.VISIBLE else View.GONE
+        // Con el PAP en marcha, el icono se enciende del color de la selección.
+        botonPap.setCompoundDrawablesRelative(icono(Icono.Tipo.PAP, if (aj.papActivo) aj.colorSel else Color.WHITE, 22), null, null, null)
         ventana.visibility = if (aj.tvVentana) View.VISIBLE else View.GONE
         titulo.visibility = if (aj.tituloDock) View.VISIBLE else View.GONE
     }
@@ -754,6 +754,7 @@ class MainActivity : Activity() {
         opciones("papder", partes(aj.papReparto).second, papOps.map { it.second }, papOps.indexOfFirst { it.first == aj.papDer }) { i -> aj.papDer = papOps[i].first }
         val sonidos = { r: Int -> if (r == 3) listOf("La que manejas", "Arriba", "Abajo", "Las dos") else listOf("La que manejas", "Izquierda", "Derecha", "Las dos") }
         opciones("papsonido", "Sonido de la TV", sonidos(aj.papReparto), aj.papSonido) { i -> aj.papSonido = i }
+        interruptor("papboton", "Botón PAP en el inicio", aj.papBoton) { aj.papBoton = it; aplicar(); montarDock() }
         nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.lanzar(this, aj) }
 
         seccion("Sistema")
@@ -803,6 +804,52 @@ class MainActivity : Activity() {
         catch (e: Exception) { avisar("Esta TV no deja elegir el inicio") }
     }
 
+    /** Botón redondo de la cabecera (tuerca, PAP): solo icono, se agranda y brilla con el foco. */
+    private fun botonIcono(tipo: Icono.Tipo, nombre: String, alPulsar: () -> Unit) = TextView(this).apply {
+        contentDescription = nombre
+        setPadding(dp(10), dp(10), dp(10), dp(10))
+        setCompoundDrawablesRelative(icono(tipo, Color.WHITE, 22), null, null, null)
+        isFocusable = true
+        elevation = dp(6).toFloat()
+        setOnClickListener { alPulsar() }
+        setOnFocusChangeListener { v, f ->
+            v.animate().scaleX(if (f) 1.08f else 1f).scaleY(if (f) 1.08f else 1f)
+                .translationY(if (f) -dp(3).toFloat() else 0f).setDuration(160).start()
+            v.elevation = dp(if (f) 14 else 6).toFloat()
+            v.outlineSpotShadowColor = if (f) aj.colorSel else Color.BLACK
+            v.outlineAmbientShadowColor = if (f) aj.colorSel else Color.BLACK
+            if (f) apuntarLuz(v, aj.colorSel, v.width / 2f, v.height / 2f)
+        }
+    }
+
+    /** Menú de la ventanita de TV (OK mantenido): fuente y sonido al momento. */
+    private fun menuVentana() {
+        val sel = aj.colorSel
+        val panel = Vidrio.panel(this, "Ventana de TV", dp(280), Icono.Tipo.TV)
+        val g = grupo()
+        Ajustes.FUENTES_TV.forEachIndexed { i, nombre ->
+            anadirAGrupo(g, Fila(this, nombre, sel).apply {
+                if (i == aj.tvFuente) accesorio = View(this@MainActivity).apply {
+                    background = icono(Icono.Tipo.CHECK, sel, 18)
+                    layoutParams = LinearLayout.LayoutParams(dp(18), dp(18))
+                }
+                setOnClickListener {
+                    dialogo?.dismiss()
+                    aj.tvFuente = i
+                    ventana.apagar(); ventana.encender()
+                }
+            })
+        }
+        val sw = Interruptor(this, aj.tvSonido)
+        anadirAGrupo(g, Fila(this, "Sonido", sel).apply {
+            accesorio = sw
+            setOnClickListener { sw.encendido = !sw.encendido; aj.tvSonido = sw.encendido; ventana.sonido(sw.encendido) }
+        })
+        panel.addView(g, filaLp())
+        dialogo = Vidrio.dialogo(this, panel, aj)
+        (g.getChildAt(aj.tvFuente * 2) ?: g.getChildAt(0))?.requestFocus()
+    }
+
     /** Con el PAP en marcha, Inicio enseña esto en vez de quedarse en el launcher. */
     private fun panelPap() {
         val sel = aj.colorSel
@@ -816,7 +863,7 @@ class MainActivity : Activity() {
         val primera = op("Manejar $n1 · ${Pap.nombre(this, aj.papIzq)}") { Pap.lanzar(this, aj, 1) }
         op("Manejar $n2 · ${Pap.nombre(this, aj.papDer)}") { Pap.lanzar(this, aj, 2) }
         op("Intercambiar lados") { aj.papIzq = aj.papDer.also { aj.papDer = aj.papIzq }; Pap.lanzar(this, aj, 1) }
-        op("Salir del PAP") { Pap.salir(aj) }
+        op("Salir del PAP") { Pap.salir(aj); aplicar() }
         panel.addView(g, filaLp())
         dialogo = Vidrio.dialogo(this, panel, aj)
         primera.requestFocus()

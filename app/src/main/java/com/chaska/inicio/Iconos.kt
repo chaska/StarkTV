@@ -12,7 +12,7 @@ import kotlin.math.sin
 
 /** Iconos de línea dibujados a mano en una rejilla de 24×24 (sin emojis ni imágenes). */
 class Icono(private val tipo: Tipo, private val color: Int, private val lado: Int) : Drawable() {
-    enum class Tipo { AJUSTES, TV, CUADRICULA, ESTRELLA, ESTRELLA_LLENA, MOVER, OCULTAR, INFO, CHECK,
+    enum class Tipo { AJUSTES, TV, CUADRICULA, ESTRELLA, ESTRELLA_LLENA, MOVER, OCULTAR, INFO, CHECK, PAP,
         SOL, SOL_NUBE, NUBE, LLUVIA, NIEVE, TORMENTA, NIEBLA }
 
     private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -66,6 +66,10 @@ class Icono(private val tipo: Tipo, private val color: Int, private val lado: In
                 c.drawCircle(12f, 12f, 9f, p)
                 c.drawLine(12f, 11f, 12f, 16.5f, p)
                 c.drawPoint(12f, 7.8f, p)
+            }
+            Tipo.PAP -> {
+                c.drawRoundRect(RectF(2.5f, 5f, 21.5f, 19f), 2f, 2f, p)
+                c.drawLine(12f, 5f, 12f, 19f, p)
             }
             Tipo.CHECK -> {
                 p.strokeWidth = 2.4f
