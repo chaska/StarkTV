@@ -248,6 +248,14 @@ class MainActivity : Activity() {
         }.conFuente()
         contenido.addView(aviso, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = (resources.displayMetrics.heightPixels * .33f).toInt() })
+        // Versión, pequeña abajo a la derecha, para saber siempre cuál está instalada.
+        contenido.addView(TextView(this).apply {
+            text = "Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName}"
+            textSize = 11f
+            setTextColor(0x80FFFFFF.toInt())
+            setShadowLayer(dp(4).toFloat(), 0f, 0f, Color.BLACK)
+        }.conFuente(), FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(14), dp(4)) })
         montarDock()
     }
 
