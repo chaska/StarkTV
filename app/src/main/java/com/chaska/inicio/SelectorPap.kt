@@ -39,6 +39,9 @@ class SelectorPap : Activity() {
         setContentView(lienzo)
     }
 
+    override fun onStart() { super.onStart(); visible = true }
+    override fun onStop() { visible = false; super.onStop() }
+
     private fun pintarNombres() {
         lienzo.nombres = elegida.map { ops.getOrNull(it)?.second ?: "" }
         lienzo.invalidate()
@@ -126,6 +129,11 @@ class SelectorPap : Activity() {
         Pap.salir(aj)
         finish()
         overridePendingTransition(0, 0)
+    }
+
+    companion object {
+        /** Para que el colocador del PAP lo vuelva a poner encima si una app se le cuela. */
+        @Volatile var visible = false
     }
 
     /** Qué está marcado: una parte, la fuente de una parte o el círculo de cerrar. */

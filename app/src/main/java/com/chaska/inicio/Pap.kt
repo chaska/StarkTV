@@ -61,6 +61,11 @@ object Pap {
             act.startActivity(Intent(act, FondoPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), opciones(null, MODO_PANTALLA_COMPLETA))
         } catch (e: Exception) { Log.w(TAG, "PAP: sin fondo: $e") }
         val orden = if (manejar == 1) listOf(1, 0) else listOf(0, 1)
+        // Qué ventana buscar para cada parte: la tarea de nuestro visor o la de la app (su afinidad empieza por el paquete).
+        val objetivos = partes.map { (clave, rect, visor) ->
+            (if (clave.startsWith(TV)) (if (visor == VisorIzq::class.java) "com.chaska.inicio.pap1" else "com.chaska.inicio.pap2") to true
+             else clave to false) to Rect(rect)
+        }
         aj.papActivo = true
         aj.papParte = manejar
         for (i in orden) {
@@ -72,6 +77,37 @@ object Pap {
             try { act.startActivity(intent, opciones(rect, MODO_VENTANA)) }
             catch (e: Exception) { Log.w(TAG, "PAP: no se pudo abrir $clave: $e") }
         }
+        colocar(act.applicationContext, aj, objetivos)
+    }
+
+    @Volatile private var tanda = 0
+
+    /**
+     * Las apps se abren a su manera (trampolines como YouTube, pantallas de bienvenida como TDTChannels)
+     * y Android las pone donde quiere. Durante 30 s, cada segundo, se mira por adb dónde está cada parte
+     * y se mueve a su sitio; si el selector está abierto, se vuelve a poner encima.
+     */
+    private fun colocar(ctx: Context, aj: Ajustes, objetivos: List<Pair<Pair<String, Boolean>, Rect>>) {
+        val mia = ++tanda
+        val principal = android.os.Handler(android.os.Looper.getMainLooper())
+        Thread {
+            val fin = android.os.SystemClock.uptimeMillis() + 30_000
+            while (android.os.SystemClock.uptimeMillis() < fin && mia == tanda && aj.papActivo) {
+                val lista = Adb.tareas(ctx) ?: break             // sin adb no se puede: se deja como está
+                var movida = false
+                for ((busca, rect) in objetivos) {
+                    val (afinidad, exacta) = busca
+                    lista.filter { it.visible && it.modo == "freeform" && (if (exacta) it.afinidad == afinidad else it.afinidad.startsWith(afinidad)) }
+                        .forEach { t ->
+                            if (t.limites != rect) { Adb.mover(ctx, t.id, rect); movida = true; Log.i(TAG, "PAP: ${t.afinidad} a $rect") }
+                        }
+                }
+                if (movida && SelectorPap.visible) principal.post {
+                    ctx.startActivity(Intent(ctx, SelectorPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), pantallaCompleta())
+                }
+                Thread.sleep(1000)
+            }
+        }.start()
     }
 
     /** Cierra los visores de TV; las apps se quedan en segundo plano y vuelven a pantalla completa al abrirlas. */

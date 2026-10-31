@@ -11,8 +11,8 @@ android {
         applicationId = "com.chaska.inicio"
         minSdk = 30
         targetSdk = 34
-        versionCode = 24
-        versionName = "0.8.4"
+        versionCode = 25
+        versionName = "0.9.0"
     }
 
     buildTypes {
@@ -33,6 +33,14 @@ android {
     }
 }
 
-// Sin librerías: solo Android y Kotlin, para gastar la mínima RAM (la TV tiene 1 GB).
+// Casi sin librerías, para gastar la mínima RAM (la TV tiene 1 GB). La única: dadb (Apache 2.0),
+// para que Stark TV hable con la depuración de la propia tele y pueda colocar las ventanas del PAP.
 dependencies {
+    implementation("dev.mobile:dadb:1.2.9") {
+        // dadb publica por error sus librerías de pruebas como dependencias: fuera.
+        exclude(group = "org.junit.platform")
+        exclude(group = "org.junit.jupiter")
+        exclude(group = "org.opentest4j")
+        exclude(group = "org.apiguardian")
+    }
 }

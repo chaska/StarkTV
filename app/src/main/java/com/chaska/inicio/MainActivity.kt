@@ -106,6 +106,8 @@ class MainActivity : Activity() {
     override fun onStart() {
         super.onStart()
         Teclas.asegurarActivo(this)
+        // Una vez por arranque: reponer por adb los ajustes que la TV pierde al reiniciar.
+        if (!ajustesRepuestos) { ajustesRepuestos = true; Adb.reponerAjustes(this) }
         swPorDefecto?.encendido = esPorDefecto()
         aplicar()
         fondo.mostrar(aj.fondo)
@@ -761,6 +763,13 @@ class MainActivity : Activity() {
         nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.lanzar(this, aj, nuevo = true) }
 
         seccion("Sistema")
+        nueva("adb", "Permisos avanzados (adb)", if (Adb.conectado) "Conectado" else "Pulsa para conectar  ›") { f ->
+            f.valor.text = "Conectando…"
+            Adb.enSegundoPlano(this, "echo ok") { r ->
+                f.valor.text = if (r != null) "Conectado" else "Acepta el aviso en la TV y vuelve a pulsar"
+                if (r != null) Adb.reponerAjustes(this)
+            }
+        }
         val sw = Interruptor(this, esPorDefecto())
         swPorDefecto = sw
         nueva("pordefecto", "Launcher por defecto", acc = sw) { cambiarPorDefecto(!esPorDefecto()) }
@@ -1042,6 +1051,7 @@ class MainActivity : Activity() {
 
     companion object {
         const val EXTRA_AJUSTES = "abrir_ajustes"
+        private var ajustesRepuestos = false
         /** Fila de Launcher a la que volver tras rehacer la pantalla (cambio de fuente). */
         private var reabrirLauncher: String? = null
     }
