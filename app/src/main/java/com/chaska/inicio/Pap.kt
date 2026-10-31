@@ -48,6 +48,12 @@ object Pap {
      */
     fun lanzar(act: Activity, aj: Ajustes, manejar: Int = 1) {
         val (r1, r2) = limites(act, aj.papReparto)
+        // Android corre 80 px una ventana libre si cae en el sitio exacto de otra (aunque esté oculta,
+        // p. ej. de un PAP anterior). Se cierran nuestros visores y se desplaza 0-2 px en cada arranque.
+        Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
+        val d = (aj.p.getInt("pap_n", 0) + 1) % 3
+        aj.p.edit().putInt("pap_n", d).apply()
+        r1.left += d; r2.left += d
         val partes = listOf(Triple(aj.papIzq, r1, VisorIzq::class.java), Triple(aj.papDer, r2, VisorDer::class.java))
         val orden = if (manejar == 1) listOf(1, 0) else listOf(0, 1)
         aj.papActivo = true
