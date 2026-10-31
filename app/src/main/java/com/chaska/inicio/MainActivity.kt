@@ -824,6 +824,7 @@ class MainActivity : Activity() {
         opciones("rotar", "Cambiar fondo solo", minutos(Ajustes.MINUTOS_ROTAR), Ajustes.MINUTOS_ROTAR.indexOf(aj.rotarMin)) { i ->
             aj.rotarMin = Ajustes.MINUTOS_ROTAR[i]; ultimaRotacion = SystemClock.uptimeMillis()
         }
+        interruptor("version", "Ver la versión sobre el fondo", aj.verVersion) { aj.verVersion = it; aplicar() }
 
         seccion("Dock")
         opciones("dock", "Posición", Ajustes.POSICIONES, aj.dock) { i -> aj.dock = i; montarDock(); pintarCarrusel(true) }
@@ -850,7 +851,6 @@ class MainActivity : Activity() {
             dialogo?.dismiss()
             abrirLauncher(enfocar = "color")     // se vuelve a abrir para pintarlo con el color nuevo
         }
-        interruptor("version", "Versión en el inicio", aj.verVersion) { aj.verVersion = it; aplicar() }
         opciones("salva", "Salvapantallas", minutos(Ajustes.MINUTOS_SALVA), Ajustes.MINUTOS_SALVA.indexOf(aj.salvaMin)) { i ->
             aj.salvaMin = Ajustes.MINUTOS_SALVA[i]
         }
