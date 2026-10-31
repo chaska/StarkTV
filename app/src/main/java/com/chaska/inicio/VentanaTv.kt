@@ -22,7 +22,8 @@ import android.widget.TextView
  * Lee los canales de la lista de Android (permiso READ_EPG_DATA) y sintoniza en el sintonizador
  * principal (HW0; el HW1 es el de imagen dentro de imagen y en esta Thomson da error).
  * CH+ / CH− del mando cambian de canal; el último se recuerda en "tv_canal".
- * Si la TV no da canales, prueba sin canal (la TV suele poner el último).
+ * Si la TV no da canales (esta Thomson solo se los enseña a Live TV), se pide la fila del canal
+ * por número (el actual era la 1533) en HW0 y luego en HW1.
  */
 class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : FrameLayout(ctx) {
     private class Canal(val id: Long, val numero: String, val nombre: String, val entrada: String)
@@ -175,8 +176,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         val (id, uri) = when (intento) {
             0 -> hw0 to TvContract.buildChannelUri(idCanal)
             1 -> hw1 to TvContract.buildChannelUri(idCanal)
-            2 -> hw0 to null
-            3 -> hw1 to TvContract.buildChannelUriForPassthroughInput(hw1)
+            // Sin canal (null) NO: en esta Thomson hace caer el servicio del sintonizador (com.mediatek.tvinput).
             else -> { estado.visibility = View.VISIBLE; estado.text = "La TV no deja mostrar la TDT aquí"; return }
         }
         rotulo.text = if (intento <= 1) "Canal $idCanal" else "TDT en directo"
@@ -187,9 +187,9 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
             otroIntento()
             return
         }
-        // Si en 7 s no hay imagen, se prueba la otra forma.
+        // Si en 10 s no hay imagen, se prueba en el otro sintonizador.
         removeCallbacks(vigia)
-        postDelayed(vigia, 7000)
+        postDelayed(vigia, 10_000)
     }
 
     private fun otroIntento() {
