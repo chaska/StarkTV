@@ -100,7 +100,9 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         val tim = context.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
         sonido(conSonido)
         if (fuente > 0) { externa(tim, fuente); return }
-        sintonizadores = tim?.tvInputList?.filter { it.type == TvInputInfo.TYPE_TUNER }?.map { it.id }?.sorted() ?: emptyList()
+        // Solo los sintonizadores de la TV (MediaTek): otras apps (canales FAST, VLC…) también se anuncian como «sintonizador».
+        val todos = tim?.tvInputList?.filter { it.type == TvInputInfo.TYPE_TUNER }?.map { it.id } ?: emptyList()
+        sintonizadores = todos.filter { it.startsWith("com.mediatek.tvinput/") }.ifEmpty { todos }.sorted()
         // El principal primero (HW0).
         entrada = sintonizadores.firstOrNull { it.endsWith("HW0") } ?: sintonizadores.firstOrNull()
         canales = leerCanales(sintonizadores.toSet())

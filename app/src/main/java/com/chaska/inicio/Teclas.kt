@@ -37,6 +37,7 @@ class Teclas : AccessibilityService() {
 
     companion object {
         private const val TAG = "InicioTV"
-        val TECLAS_AJUSTES = setOf(KeyEvent.KEYCODE_SETTINGS)
+        // La tuerca del mando Thomson llega como BUTTON_14 (201, scan 384); SETTINGS por si otro mando.
+        val TECLAS_AJUSTES = setOf(KeyEvent.KEYCODE_BUTTON_14, KeyEvent.KEYCODE_SETTINGS)
     }
 }
