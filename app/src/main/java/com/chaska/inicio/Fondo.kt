@@ -62,7 +62,8 @@ object CatalogoFondos {
         for (dir in carpetas()) {
             // Una subcarpeta con index.html (y sus imágenes) también vale: Fondos/humo/index.html
             dir.listFiles()?.sortedBy { it.name.lowercase() }?.forEach { f ->
-                if (f.isFile) {
+                // Una copia de un fondo que ya trae la app (castillo.webp en Descargas) no sale dos veces.
+                if (f.isFile && INCLUIDOS.none { it.first.equals(f.name, ignoreCase = true) }) {
                     tipoDe(f.name)?.let { res += OpcionFondo(f.absolutePath, f.name, it) }
                 } else if (f.isDirectory) {
                     val idx = File(f, "index.html")
