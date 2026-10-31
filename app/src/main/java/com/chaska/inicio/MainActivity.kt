@@ -827,7 +827,7 @@ class MainActivity : Activity() {
             aj.rotarMin = Ajustes.MINUTOS_ROTAR[i]; ultimaRotacion = SystemClock.uptimeMillis()
         }
         interruptor("version", "Ver la versión sobre el fondo", aj.verVersion) { aj.verVersion = it; aplicar() }
-        nueva("recibir", "Recibir fondos desde el móvil o PC", "›") { abrirRecibir() }
+        nueva("recibir", "Recibir fondos desde el móvil o PC", "›") { dialogo?.dismiss(); abrirRecibir() }
 
         seccion("Dock")
         opciones("dock", "Posición", Ajustes.POSICIONES, aj.dock) { i -> aj.dock = i; montarDock(); pintarCarrusel(true) }
@@ -1062,7 +1062,8 @@ class MainActivity : Activity() {
         panel.addView(g, filaLp().apply { topMargin = dp(14) })
         val dl = Vidrio.dialogo(this, panel, aj)
         cerrar.setOnClickListener { dl.dismiss() }
-        dl.setOnDismissListener { r.parar() }
+        // Al cerrar se vuelve a Ajustes, a esta misma fila (con los fondos nuevos ya en la lista).
+        dl.setOnDismissListener { r.parar(); abrirLauncher(enfocar = "recibir") }
         r.empezar()
         cerrar.requestFocus()
     }
