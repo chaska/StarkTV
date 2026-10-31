@@ -30,14 +30,16 @@ fun conAlfa(c: Int, a: Int) = Color.argb(a, Color.red(c), Color.green(c), Color.
 /** Color de la interfaz (ajuste de Pantalla): tiñe paneles, interruptores, reloj, luces y la selección. */
 object Tema {
     var color = 0xFFF2A93B.toInt()
+    /** Opacidad de los menús en % (ajuste de Pantalla). */
+    var opacidad = 80
 }
 
 /** Paneles de cristal: degradado translúcido teñido del color de la interfaz, borde de luz y el fondo difuminado detrás. */
 object Vidrio {
     fun fondo(ctx: Context): Drawable =
         GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(
-            conAlfa(Ficha.mezclar(0xFF2E3852.toInt(), Tema.color, .3f), 0xB0),
-            conAlfa(Ficha.mezclar(0xFF0E111C.toInt(), Tema.color, .1f), 0xE0))).apply {
+            conAlfa(Ficha.mezclar(0xFF2E3852.toInt(), Tema.color, .3f), Tema.opacidad.coerceIn(0, 100) * 255 / 100),
+            conAlfa(Ficha.mezclar(0xFF0E111C.toInt(), Tema.color, .1f), (Tema.opacidad.coerceIn(0, 100) * 255 / 100 + 60).coerceAtMost(255)))).apply {
             cornerRadius = ctx.dp(18).toFloat()
             setStroke(ctx.dp(1), conAlfa(Ficha.mezclar(Color.WHITE, Tema.color, .5f), 0x40))
         }

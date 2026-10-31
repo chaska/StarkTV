@@ -86,6 +86,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         Fuentes.actual = aj.fuente
         Tema.color = aj.colorSel
+        Tema.opacidad = aj.opacidad
         val raiz = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         val capa = FrameLayout(this)
         raiz.addView(capa, lleno())
@@ -850,6 +851,21 @@ class MainActivity : Activity() {
             aplicar()
             dialogo?.dismiss()
             abrirLauncher(enfocar = "color")     // se vuelve a abrir para pintarlo con el color nuevo
+        }
+        // Opacidad de los menús: ◀ ▶ de 10 en 10 (30-100 %); el panel cambia al momento.
+        val barraOp = Barra(this, sel, aj.opacidad)
+        fun ponerOpacidad(v: Int, f: Fila) {
+            aj.opacidad = v.coerceIn(30, 100); Tema.opacidad = aj.opacidad
+            barraOp.valor = aj.opacidad; f.valor.text = "${aj.opacidad}%"
+            panel.background = Vidrio.fondo(this)
+        }
+        val filaOp = nueva("opacidad", "Opacidad de los menús", "${aj.opacidad}%", barraOp) { f ->
+            ponerOpacidad(if (aj.opacidad >= 100) 30 else aj.opacidad + 10, f)
+        }
+        filaOp.setOnKeyListener { _, code, ev ->
+            if (code != KeyEvent.KEYCODE_DPAD_LEFT && code != KeyEvent.KEYCODE_DPAD_RIGHT) return@setOnKeyListener false
+            if (ev.action == KeyEvent.ACTION_DOWN) ponerOpacidad(aj.opacidad + if (code == KeyEvent.KEYCODE_DPAD_RIGHT) 10 else -10, filaOp)
+            true
         }
         opciones("salva", "Salvapantallas", minutos(Ajustes.MINUTOS_SALVA), Ajustes.MINUTOS_SALVA.indexOf(aj.salvaMin)) { i ->
             aj.salvaMin = Ajustes.MINUTOS_SALVA[i]

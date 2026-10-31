@@ -28,6 +28,7 @@ open class Visor(val parte: Int) : Activity() {
         if (!Pap.lanzadoEnEsteProceso) { aj.papActivo = false; finishAndRemoveTask(); return }   // reabierto por Android
         Fuentes.actual = aj.fuente
         Tema.color = aj.colorSel
+        Tema.opacidad = aj.opacidad
         ventana = VentanaTv(this, aj.colorSel, aj.p).apply {
             isFocusable = false
             onFocusChangeListener = null
