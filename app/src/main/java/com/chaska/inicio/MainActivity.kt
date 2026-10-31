@@ -318,7 +318,7 @@ class MainActivity : Activity() {
         val lp = when (aj.dock) {
             0 -> FrameLayout.LayoutParams(ancho, alto, Gravity.BOTTOM).apply { bottomMargin = dp(6) }
             1 -> FrameLayout.LayoutParams(ancho, alto, Gravity.CENTER_VERTICAL)
-            2 -> FrameLayout.LayoutParams(ancho, alto, Gravity.TOP).apply { topMargin = dp(100) }
+            2 -> FrameLayout.LayoutParams(ancho, alto, Gravity.TOP).apply { topMargin = dp(14) }   // arriba del todo: tuerca y reloj bajan
             3 -> FrameLayout.LayoutParams(alto, ancho, Gravity.START).apply {
                 topMargin = dp(if (arribaLibre(true)) 8 else 120); marginStart = dp(14)
             }
@@ -355,18 +355,21 @@ class MainActivity : Activity() {
 
     private fun colocarCabecera(c: Cabecera) {
         val mismoLado = c.relojIzq == c.botonIzq
-        val lado = Gravity.TOP or if (c.botonIzq) Gravity.START else Gravity.END
+        // Con el dock arriba, la tuerca, el PAP y el reloj van abajo, en sus mismas esquinas.
+        val abajo = aj.dock == 2
+        val vertical = if (abajo) Gravity.BOTTOM else Gravity.TOP
+        val lado = vertical or if (c.botonIzq) Gravity.START else Gravity.END
         botonAjustes.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, lado).apply {
-            topMargin = dp(16); marginStart = dp(22); marginEnd = dp(22)
+            if (abajo) bottomMargin = dp(16) else topMargin = dp(16); marginStart = dp(22); marginEnd = dp(22)
         }
         // El botón PAP, junto a la tuerca (hacia dentro de la pantalla).
         botonPap.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, lado).apply {
-            topMargin = dp(16); marginStart = dp(78); marginEnd = dp(78)
+            if (abajo) bottomMargin = dp(16) else topMargin = dp(16); marginStart = dp(78); marginEnd = dp(78)
         }
         bloqueReloj.gravity = Gravity.CENTER_HORIZONTAL
         bloqueReloj.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-            Gravity.TOP or if (c.relojIzq) Gravity.START else Gravity.END).apply {
-            topMargin = dp(22)
+            vertical or if (c.relojIzq) Gravity.START else Gravity.END).apply {
+            if (abajo) bottomMargin = dp(22) else topMargin = dp(22)
             // Si comparte esquina con el botón, se aparta para dejarle sitio.
             val borde = dp(if (mismoLado) (if (aj.papBoton) 140 else 84) else 40)
             marginStart = borde; marginEnd = borde
@@ -392,6 +395,8 @@ class MainActivity : Activity() {
         }
         when (aj.dock) {
             0 -> { lp.gravity = Gravity.TOP or if (c.relojIzq) Gravity.END else Gravity.START; lp.topMargin = dp(76) }
+            // Dock arriba: abajo en el centro, entre la tuerca y el reloj.
+            2 -> { lp.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; lp.bottomMargin = dp(24) }
             3 -> { lp.gravity = Gravity.BOTTOM or Gravity.END; lp.bottomMargin = dp(32) }
             else -> { lp.gravity = Gravity.BOTTOM or Gravity.START; lp.bottomMargin = dp(32) }
         }
@@ -523,6 +528,8 @@ class MainActivity : Activity() {
             f.alEnfocar = { x -> x.postDelayed({ apuntarLuz(x, x.color, x.pivotX, x.pivotY) }, 120) }
             fila.addView(f, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 if (fila.childCount > 0) { if (v) topMargin = sep else marginStart = sep }
+                // En vertical, la casa y Favoritos (más estrechas) van centradas en la columna, no a la izquierda.
+                gravity = if (v) Gravity.CENTER_HORIZONTAL else Gravity.CENTER_VERTICAL
             })
         }
         // OK mantenido sobre la casa o sobre Favoritos: elegir dónde va el dock.

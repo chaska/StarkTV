@@ -11,8 +11,8 @@ android {
         applicationId = "com.chaska.inicio"
         minSdk = 30
         targetSdk = 34
-        versionCode = 62
-        versionName = "0.9.37"
+        versionCode = 63
+        versionName = "0.9.38"
     }
 
     buildTypes {
