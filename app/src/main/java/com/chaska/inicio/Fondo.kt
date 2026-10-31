@@ -53,6 +53,7 @@ object CatalogoFondos {
     val INCLUIDOS = listOf(
         "castillo.webp" to "Castillo", "humo.html" to "Humo",
         "particulas.html" to "Partículas", "halloween.html" to "Halloween - HTML5",
+        "santa.webp" to "Santa's Day",
     )
 
     fun nombreIncluido(clave: String): String? = INCLUIDOS.firstOrNull { "asset:" + it.first == clave }?.second

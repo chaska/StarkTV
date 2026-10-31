@@ -40,7 +40,7 @@ funcionar lo básico; la ventanita de TV y el PAP dependen de cómo el fabricant
 - Necesita el permiso avanzado por adb (ver «Primera instalación»).
 
 ### Fondos
-- Incluidos: **Castillo** (imagen), **Humo** y **Partículas** (HTML5) y **Halloween - HTML5** (imagen con murciélagos que pasan por detrás del árbol, nubes, niebla, cascadas con agua en movimiento y las luces de calabazas, farolillos y castillo encendiéndose).
+- Incluidos: **Castillo** y **Santa's Day** (imágenes), **Humo** y **Partículas** (HTML5) y **Halloween - HTML5** (imagen con murciélagos que pasan por detrás del árbol, nubes, niebla, cascadas con agua en movimiento y las luces de calabazas, farolillos y castillo encendiéndose).
 - Propios: **imagen** (jpg, png, webp), **GIF animado**, **vídeo** (mp4, mkv, webm, mov; en bucle y sin sonido) y **HTML5**.
 - **Brillo** del fondo, **cambiar de fondo solo** cada cierto tiempo y mostrar u ocultar la versión sobre el fondo.
 - El fondo se destruye al salir del inicio: mientras ves otra app no gasta memoria ni gráfica.
@@ -116,7 +116,7 @@ Un **HTML5** propio se envía con «Recibir fondos»: un `.html` suelto o un `.z
 ## Primera instalación
 
 ```bash
-adb install -r StarkTV-0.9.30.apk
+adb install -r StarkTV-0.9.31.apk
 adb shell appops set com.chaska.inicio MANAGE_EXTERNAL_STORAGE allow
 adb shell pm grant com.chaska.inicio android.permission.WRITE_SECURE_SETTINGS
 adb shell cmd package set-home-activity com.chaska.inicio/.MainActivity
@@ -161,5 +161,5 @@ Se distribuye SIN NINGUNA GARANTÍA. El texto completo está en [`LICENSE`](LICE
 | [Open-Meteo](https://open-meteo.com) | Datos del tiempo y búsqueda de la ciudad (sin clave, por HTTPS) | Datos bajo CC BY 4.0 — *Weather data by Open-Meteo.com* |
 | Android SDK de Google | Base de la app | Apache License 2.0 |
 
-Las imágenes de los fondos *Castillo* y *Halloween* y los iconos de la interfaz son aportados por ChasKa para este proyecto.
+Las imágenes de los fondos *Castillo*, *Halloween* y *Santa's Day* y los iconos de la interfaz son aportados por ChasKa para este proyecto.
 Android y Android TV son marcas de Google LLC; Thomson es marca de su titular. Este proyecto no está afiliado a ninguna de ellas.
