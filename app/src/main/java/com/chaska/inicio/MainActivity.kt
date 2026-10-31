@@ -159,6 +159,14 @@ class MainActivity : Activity() {
             if (e.action == KeyEvent.ACTION_UP) salirSalva(true)
             return true
         }
+        // El jog del mando deja la flecha apretada ~550 ms y Android lo toma como tecla mantenida
+        // (repite a los 400 ms y luego cada 50): sin esto salta 4 fichas. Las repeticiones de los
+        // primeros 700 ms se ignoran; mantener la flecha más rato sigue avanzando rápido.
+        if (e.repeatCount > 0 && e.eventTime - e.downTime < 700 && when (e.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT,
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> true
+                else -> false
+            }) return true
         val m = moviendo
         if (m != null) {
             val atras = if (vertical) KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_LEFT
