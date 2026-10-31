@@ -76,7 +76,7 @@ object Pap {
             catch (e: Exception) { Log.w(TAG, "PAP: no se pudo abrir $clave: $e") }
         }
         colocar(act.applicationContext, aj, objetivos, manejar)
-        if (nuevo) avisar(act.applicationContext)
+        if (nuevo && aj.papAviso > 0) avisar(act.applicationContext, aj.papAviso)
     }
 
     @Volatile private var tanda = 0
@@ -117,12 +117,14 @@ object Pap {
         }.start()
     }
 
-    /** Al empezar: cómo se maneja el PAP (dos avisos seguidos, unos 7 s). */
-    private fun avisar(ctx: Context) {
+    val AVISOS = listOf(0, 3, 5)
+
+    /** Al empezar: cómo se maneja el PAP. Android solo deja avisos de ~2 s o ~3,5 s: 3 s = uno largo, 5 s = largo + corto. */
+    private fun avisar(ctx: Context, segundos: Int) {
         val texto = "PAP · Tuerca: cambiar de parte · Mantén la tuerca o pulsa la X: salir"
         val h = android.os.Handler(android.os.Looper.getMainLooper())
         h.postDelayed({ android.widget.Toast.makeText(ctx, texto, android.widget.Toast.LENGTH_LONG).show() }, 1500)
-        h.postDelayed({ android.widget.Toast.makeText(ctx, texto, android.widget.Toast.LENGTH_LONG).show() }, 5000)
+        if (segundos >= 5) h.postDelayed({ android.widget.Toast.makeText(ctx, texto, android.widget.Toast.LENGTH_SHORT).show() }, 5000)
     }
 
     /** Qué tarea buscar para una parte: nuestro visor (afinidad exacta) o la app (afinidad que empieza por el paquete). */

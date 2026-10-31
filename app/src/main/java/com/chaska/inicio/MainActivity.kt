@@ -767,6 +767,7 @@ class MainActivity : Activity() {
         opciones("papder", partes(aj.papReparto).second, papOps.map { it.second }, papOps.indexOfFirst { it.first == aj.papDer }) { i -> aj.papDer = papOps[i].first }
         val sonidos = { r: Int -> if (r == 3) listOf("La que manejas", "Arriba", "Abajo", "Las dos") else listOf("La que manejas", "Izquierda", "Derecha", "Las dos") }
         opciones("papsonido", "Sonido de la TV", sonidos(aj.papReparto), aj.papSonido) { i -> aj.papSonido = i }
+        opciones("papaviso", "Aviso al empezar", Pap.AVISOS.map { if (it == 0) "Desactivado" else "$it s" }, Pap.AVISOS.indexOf(aj.papAviso)) { i -> aj.papAviso = Pap.AVISOS[i] }
         interruptor("papboton", "Widget PAP en el inicio", aj.papBoton) { aj.papBoton = it; aplicar(); montarDock() }
         interruptor("papdock", "PAP en el dock", aj.papDock) { aj.papDock = it; pintarCarrusel(true) }
         nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.empezar(this) }
