@@ -1,6 +1,7 @@
 package com.chaska.inicio
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
@@ -9,6 +10,7 @@ import android.media.tv.TvInputInfo
 import android.media.tv.TvInputManager
 import android.media.tv.TvView
 import android.net.Uri
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewOutlineProvider
@@ -16,11 +18,15 @@ import android.widget.FrameLayout
 import android.widget.TextView
 
 /**
- * Ventanita flotante con la TDT en directo (sin sonido). Esta Thomson no deja leer el nombre del canal
- * a otras apps, así que se intenta mostrar la imagen del sintonizador; si no deja, lo dice en la ventana.
- * Prueba dos formas de sintonizar: la de entrada directa y "sin canal" (la TV suele poner el último).
+ * Ventanita flotante con la TDT en directo (sin sonido) y el canal que se ve.
+ * Lee los canales de la lista de Android (permiso READ_EPG_DATA) y sintoniza en el sintonizador
+ * principal (HW0; el HW1 es el de imagen dentro de imagen y en esta Thomson da error).
+ * CH+ / CH− del mando cambian de canal; el último se recuerda en "tv_canal".
+ * Si la TV no da canales, prueba sin canal (la TV suele poner el último).
  */
-class VentanaTv(ctx: Context, sel: Int) : FrameLayout(ctx) {
+class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : FrameLayout(ctx) {
+    private class Canal(val id: Long, val numero: String, val nombre: String, val entrada: String)
+
     private val tv = TvView(ctx)
     private val estado = TextView(ctx).apply {
         textSize = 13f
@@ -28,9 +34,19 @@ class VentanaTv(ctx: Context, sel: Int) : FrameLayout(ctx) {
         gravity = Gravity.CENTER
         text = "Conectando con la TDT…"
     }.conFuente()
+    private val rotulo = TextView(ctx).apply {
+        text = "TDT en directo"
+        textSize = 12f
+        setTextColor(Color.WHITE)
+        maxLines = 1
+        setPadding(ctx.dp(10), ctx.dp(14), ctx.dp(10), ctx.dp(6))
+        background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xB3000000.toInt(), 0))
+    }.conFuente(medio = true)
+    private var canales: List<Canal> = emptyList()
+    private var actual = -1
     private var entrada: String? = null
     private var intento = 0
-    private val siguiente = Runnable { probar() }
+    private val siguiente = Runnable { probarSinCanal() }
     private val vigia = Runnable { if (estado.visibility == View.VISIBLE) otroIntento() }
 
     init {
@@ -44,13 +60,7 @@ class VentanaTv(ctx: Context, sel: Int) : FrameLayout(ctx) {
         setBackgroundColor(Color.BLACK)
         addView(tv, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(estado, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        addView(TextView(ctx).apply {
-            text = "TDT en directo"
-            textSize = 12f
-            setTextColor(Color.WHITE)
-            setPadding(ctx.dp(10), ctx.dp(14), ctx.dp(10), ctx.dp(6))
-            background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xB3000000.toInt(), 0))
-        }.conFuente(medio = true), LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
+        addView(rotulo, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
         // Marco: borde fino, que se enciende del color de la selección con el foco.
         foreground = GradientDrawable().apply { cornerRadius = ctx.dp(14).toFloat(); setStroke(ctx.dp(1), 0x40FFFFFF) }
         setOnFocusChangeListener { v, f ->
@@ -62,10 +72,12 @@ class VentanaTv(ctx: Context, sel: Int) : FrameLayout(ctx) {
         tv.setStreamVolume(0f)
         tv.setCallback(object : TvView.TvInputCallback() {
             override fun onVideoAvailable(inputId: String) {
+                Log.i(TAG, "imagen disponible en $inputId")
                 removeCallbacks(vigia)
                 estado.visibility = View.GONE
             }
             override fun onVideoUnavailable(inputId: String, reason: Int) {
+                Log.i(TAG, "sin imagen en $inputId, motivo $reason")
                 estado.visibility = View.VISIBLE
                 estado.text = when (reason) {
                     TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING -> "Sintonizando…"
@@ -74,17 +86,28 @@ class VentanaTv(ctx: Context, sel: Int) : FrameLayout(ctx) {
                     else -> "Sin imagen"
                 }
             }
-            override fun onConnectionFailed(inputId: String) = otroIntento()
-            override fun onDisconnected(inputId: String) = otroIntento()
+            override fun onConnectionFailed(inputId: String) { Log.w(TAG, "conexión fallida $inputId"); otroIntento() }
+            override fun onDisconnected(inputId: String) { Log.w(TAG, "desconectado $inputId"); otroIntento() }
         })
     }
 
     fun encender() {
         val tim = context.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
-        entrada = tim?.tvInputList?.firstOrNull { it.type == TvInputInfo.TYPE_TUNER }?.id
-        if (entrada == null) { estado.text = "Esta TV no deja ver el sintonizador"; return }
-        intento = 0
-        probar()
+        val sintonizadores = tim?.tvInputList?.filter { it.type == TvInputInfo.TYPE_TUNER }?.map { it.id }?.sorted() ?: emptyList()
+        // El principal primero (HW0).
+        entrada = sintonizadores.firstOrNull { it.endsWith("HW0") } ?: sintonizadores.firstOrNull()
+        canales = leerCanales(sintonizadores.toSet())
+        Log.i(TAG, "sintonizadores=$sintonizadores canales=${canales.size}")
+        if (canales.isNotEmpty()) {
+            val guardado = prefs.getLong("tv_canal", -1)
+            actual = canales.indexOfFirst { it.id == guardado }.takeIf { it >= 0 } ?: 0
+            sintonizar()
+        } else if (entrada != null) {
+            intento = 0
+            probarSinCanal()
+        } else {
+            estado.text = "Esta TV no deja ver el sintonizador"
+        }
     }
 
     fun apagar() {
@@ -93,13 +116,55 @@ class VentanaTv(ctx: Context, sel: Int) : FrameLayout(ctx) {
         try { tv.reset() } catch (e: Exception) { }
     }
 
-    private fun probar() {
+    /** CH+ / CH−: devuelve false si no hay lista de canales. */
+    fun cambiarCanal(paso: Int): Boolean {
+        if (canales.isEmpty()) return false
+        actual = (actual + paso + canales.size) % canales.size
+        sintonizar()
+        return true
+    }
+
+    private fun leerCanales(entradas: Set<String>): List<Canal> = try {
+        val l = mutableListOf<Canal>()
+        context.contentResolver.query(TvContract.Channels.CONTENT_URI, arrayOf(
+            TvContract.Channels._ID, TvContract.Channels.COLUMN_DISPLAY_NUMBER,
+            TvContract.Channels.COLUMN_DISPLAY_NAME, TvContract.Channels.COLUMN_INPUT_ID), null, null, null)?.use { c ->
+            while (c.moveToNext()) {
+                val ent = c.getString(3) ?: continue
+                if (entradas.isNotEmpty() && ent !in entradas) continue
+                l += Canal(c.getLong(0), c.getString(1) ?: "", c.getString(2) ?: "", ent)
+            }
+        }
+        // Por número de canal (1, 2, 3… no 1, 10, 11…).
+        l.sortedWith(compareBy({ it.numero.substringBefore('.').toIntOrNull() ?: Int.MAX_VALUE }, { it.numero }))
+    } catch (e: Exception) {
+        Log.w(TAG, "no se pueden leer los canales: $e")
+        emptyList()
+    }
+
+    private fun sintonizar() {
+        val c = canales.getOrNull(actual) ?: return
+        prefs.edit().putLong("tv_canal", c.id).apply()
+        rotulo.text = listOf(c.numero, c.nombre).filter { it.isNotBlank() }.joinToString("  ·  ").ifBlank { "TDT en directo" }
+        estado.visibility = View.VISIBLE
+        estado.text = "Sintonizando…"
+        Log.i(TAG, "sintonizando ${c.numero} ${c.nombre} (${c.id}) en ${c.entrada}")
+        try {
+            tv.tune(c.entrada, TvContract.buildChannelUri(c.id))
+        } catch (e: Exception) {
+            Log.w(TAG, "tune falló: $e")
+            estado.text = "La TV no deja mostrar la TDT aquí"
+        }
+    }
+
+    private fun probarSinCanal() {
         val id = entrada ?: return
         val uri: Uri? = when (intento) {
-            0 -> TvContract.buildChannelUriForPassthroughInput(id)
-            1 -> null
+            0 -> null
+            1 -> TvContract.buildChannelUriForPassthroughInput(id)
             else -> { estado.visibility = View.VISIBLE; estado.text = "La TV no deja mostrar la TDT aquí"; return }
         }
+        Log.i(TAG, "sin lista de canales: intento $intento en $id con $uri")
         try {
             tv.tune(id, uri)
         } catch (e: Exception) {
@@ -112,9 +177,12 @@ class VentanaTv(ctx: Context, sel: Int) : FrameLayout(ctx) {
     }
 
     private fun otroIntento() {
+        if (canales.isNotEmpty()) return            // con canales no hay plan B: se queda el aviso
         intento++
         removeCallbacks(vigia)
         removeCallbacks(siguiente)
         post(siguiente)
     }
+
+    companion object { const val TAG = "InicioTV" }
 }

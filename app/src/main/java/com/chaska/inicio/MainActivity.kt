@@ -158,6 +158,11 @@ class MainActivity : Activity() {
             e.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> 1f
             else -> 0f
         }
+        // CH+ / CH− del mando cambian el canal de la ventanita de TDT.
+        if (aj.tvVentana && (e.keyCode == KeyEvent.KEYCODE_CHANNEL_UP || e.keyCode == KeyEvent.KEYCODE_CHANNEL_DOWN)) {
+            if (e.action == KeyEvent.ACTION_DOWN) ventana.cambiarCanal(if (e.keyCode == KeyEvent.KEYCODE_CHANNEL_UP) 1 else -1)
+            return true
+        }
         if (e.keyCode == KeyEvent.KEYCODE_BACK) return true
         return super.dispatchKeyEvent(e)
     }
@@ -207,7 +212,7 @@ class MainActivity : Activity() {
         bloqueReloj.addView(tiempo, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
         contenido.addView(bloqueReloj)
 
-        ventana = VentanaTv(this, aj.colorSel).apply {
+        ventana = VentanaTv(this, aj.colorSel, aj.p).apply {
             visibility = View.GONE
             setOnClickListener { abrirTdt() }
         }
