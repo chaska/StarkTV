@@ -49,7 +49,7 @@ funcionar lo básico; la ventanita de TV y el PAP dependen de cómo el fabricant
 En *Ajustes › Launcher › Fondo › Recibir fondos desde el móvil o PC* la TV enseña una dirección y una **clave de 6 cifras nueva cada vez**.
 La página (con el icono, el nombre y la versión de Stark TV) pide la clave una vez; después se pueden **enviar** fondos
 (eligiendo el nombre de cada uno antes de mandarlo, con barra de progreso), **ponerlos** de fondo, **renombrarlos** y **borrarlos**,
-y se ve cuál está puesto. Las **imágenes fijas se guardan siempre en WebP** (como mucho 2560 px de lado): un PNG de 2,3 MB queda en unos 230 KB.
+y se ve cuál está puesto. Al abrir esa pantalla, los fondos recibidos que aún estén en jpg, png o gif fijo se pasan a WebP (y se limpian los antiguos). Las **imágenes fijas se guardan siempre en WebP** (como mucho 2560 px de lado): un PNG de 2,3 MB queda en unos 230 KB.
 Ver «Seguridad» más abajo.
 
 ### Aspecto
@@ -120,7 +120,7 @@ Un **HTML5** propio se envía con «Recibir fondos»: un `.html` suelto o un `.z
 ## Primera instalación
 
 ```bash
-adb install -r StarkTV-0.9.32.apk
+adb install -r StarkTV-0.9.33.apk
 adb shell appops set com.chaska.inicio MANAGE_EXTERNAL_STORAGE allow
 adb shell pm grant com.chaska.inicio android.permission.WRITE_SECURE_SETTINGS
 adb shell cmd package set-home-activity com.chaska.inicio/.MainActivity

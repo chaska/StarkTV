@@ -58,6 +58,7 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
         if (servidor != null) return
         val s = try { ServerSocket(PUERTO) } catch (e: Exception) { return }
         servidor = s
+        thread(name = "a-webp", isDaemon = true) { pasarAWebp() }
         thread(name = "recibidor", isDaemon = true) {
             while (!s.isClosed) {
                 val c = try { s.accept() } catch (e: Exception) { break }
@@ -129,6 +130,37 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
             "POST /renombrar" -> renombrar(sal, q["nombre"], q["nuevo"])
             else -> responder(sal, 404, "text/plain", "No existe")
         }
+    }
+
+    /**
+     * Los fondos recibidos antes de que se guardaran en WebP (jpg, png, gif fijos) se limpian y se pasan a WebP.
+     * Va con el cerrojo de las subidas para no pisarse con una; si uno falla, se deja como estaba.
+     */
+    private fun pasarAWebp() {
+        if (!subiendo.compareAndSet(false, true)) return
+        try {
+            for (f in carpeta().listFiles().orEmpty()) {
+                val ext = f.name.substringAfterLast('.', "").lowercase()
+                if (!f.isFile || f.name.startsWith(".") || ext !in setOf("jpg", "jpeg", "png", "gif", "webp")) continue
+                val tmp = File(carpeta(), ".convirtiendo-${f.name}")
+                try {
+                    f.copyTo(tmp, overwrite = true)
+                    Saneador.limpiar(tmp, ext)
+                    if (!Saneador.aWebp(tmp, ext)) {
+                        // Ya era WebP (o GIF animado): se queda con su nombre, pero limpio de metadatos.
+                        if (tmp.length() != f.length()) { f.delete(); tmp.renameTo(f) }
+                        continue
+                    }
+                    var destino = File(carpeta(), f.name.substringBeforeLast('.') + ".webp")
+                    if (destino.exists()) destino = File(carpeta(), f.name.substringBeforeLast('.') + "-" + ext + ".webp")
+                    if (!tmp.renameTo(destino)) continue
+                    val antes = clave(f)
+                    f.delete()
+                    avisar(Evento.Renombrado(antes, clave(destino)))
+                } catch (e: Exception) {
+                } finally { tmp.delete() }
+            }
+        } finally { subiendo.set(false) }
     }
 
     /** Comprueba la clave de la TV; si es buena, da una sesión para este navegador. */
