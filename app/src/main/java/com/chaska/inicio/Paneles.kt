@@ -125,36 +125,6 @@ class Fila(ctx: Context, titulo: String, sel: Int, icono: Icono.Tipo? = null) : 
     }.conFuente()
 }
 
-/** Opciones a la vista, como en un iPhone: «Micro [Pequeño] Mediano Grande». La elegida va en una cápsula. */
-class Selector(ctx: Context, opciones: List<String>, private val sel: Int, indice: Int) : LinearLayout(ctx) {
-    private val etiquetas = opciones.map { t ->
-        TextView(ctx).apply {
-            text = t
-            textSize = 13f
-            setPadding(ctx.dp(9), ctx.dp(3), ctx.dp(9), ctx.dp(3))
-        }.conFuente()
-    }
-    var indice = indice
-        set(v) { field = v; pintar() }
-
-    init {
-        gravity = Gravity.CENTER_VERTICAL
-        etiquetas.forEach { addView(it) }
-        pintar()
-    }
-
-    private fun pintar() = etiquetas.forEachIndexed { i, t ->
-        val elegida = i == indice
-        t.setTextColor(if (elegida) Color.WHITE else 0x80FFFFFF.toInt())
-        t.background = if (elegida) GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(conAlfa(sel, 0xCC), conAlfa(sel, 0x80))).apply {
-            cornerRadius = context.dp(12).toFloat()
-            setStroke(context.dp(1), 0x40FFFFFF)
-        } else null
-        t.typeface = if (elegida) Fuentes.medio(context) else Fuentes.normal(context)
-    }
-}
-
 /** Interruptor encendido/apagado dibujado a mano (verde con luz cuando está encendido). */
 class Interruptor(ctx: Context, encendido: Boolean) : View(ctx) {
     var encendido = encendido
