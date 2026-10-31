@@ -12,6 +12,8 @@ import android.os.Environment
 import android.view.Surface
 import android.view.TextureView
 import android.view.View
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -55,18 +57,30 @@ object CatalogoFondos {
 
     fun nombreIncluido(clave: String): String? = INCLUIDOS.firstOrNull { "asset:" + it.first == clave }?.second
 
+    /** Carpeta privada de los fondos recibidos (Recibidor). */
+    fun recibidos(ctx: Context) = File(ctx.filesDir, "fondos")
+
+    /** ¿Se puede abrir este HTML? Solo los de la app y los recibidos (revisados al llegar). */
+    fun htmlPermitido(ctx: Context, clave: String): Boolean {
+        if (clave.startsWith("asset:")) return true
+        val raiz = recibidos(ctx).canonicalPath + File.separator
+        return try { File(clave).canonicalPath.startsWith(raiz) } catch (e: Exception) { false }
+    }
+
     fun todos(ctx: Context): List<OpcionFondo> {
         val res = mutableListOf<OpcionFondo>()
         val hay = ctx.assets.list("fondos")?.toSet().orEmpty()
         for ((f, nombre) in INCLUIDOS) if (f in hay) tipoDe(f)?.let { res += OpcionFondo("asset:$f", nombre, it) }
-        // Primero los recibidos desde el móvil o el PC (Ajustes › Fondo › Recibir fondos).
-        for (dir in listOf(File(ctx.filesDir, "fondos")) + carpetas()) {
-            // Una subcarpeta con index.html (y sus imágenes) también vale: Fondos/humo/index.html
+        // Primero los recibidos desde el móvil o el PC (Ajustes › Fondo › Recibir fondos), ya revisados y limpios.
+        // De /sdcard, Descargas y USB solo imágenes y vídeos: un HTML de ahí no se ha revisado y podría ser de cualquiera.
+        val recibidos = recibidos(ctx)
+        for (dir in listOf(recibidos) + carpetas()) {
+            val deConfianza = dir == recibidos
             dir.listFiles()?.sortedBy { it.name.lowercase() }?.forEach { f ->
                 // Una copia de un fondo que ya trae la app (castillo.webp en Descargas) no sale dos veces.
-                if (f.isFile && INCLUIDOS.none { it.first.equals(f.name, ignoreCase = true) }) {
-                    tipoDe(f.name)?.let { res += OpcionFondo(f.absolutePath, f.name, it) }
-                } else if (f.isDirectory) {
+                if (f.isFile && !f.name.startsWith(".") && INCLUIDOS.none { it.first.equals(f.name, ignoreCase = true) }) {
+                    tipoDe(f.name)?.let { if (it != OpcionFondo.Tipo.HTML || deConfianza) res += OpcionFondo(f.absolutePath, f.name, it) }
+                } else if (f.isDirectory && deConfianza) {
                     val idx = File(f, "index.html")
                     if (idx.isFile) res += OpcionFondo(idx.absolutePath, f.name + "/", OpcionFondo.Tipo.HTML)
                 }
@@ -94,7 +108,7 @@ class Fondo(private val ctx: Context, private val capa: FrameLayout) {
             when (tipo) {
                 OpcionFondo.Tipo.IMAGEN, OpcionFondo.Tipo.ANIMADA -> imagen(c)
                 OpcionFondo.Tipo.VIDEO -> video(c)
-                OpcionFondo.Tipo.HTML -> html(c)
+                OpcionFondo.Tipo.HTML -> if (CatalogoFondos.htmlPermitido(ctx, c)) html(c)
             }
         } catch (e: Exception) {
             liberar()
@@ -171,23 +185,34 @@ class Fondo(private val ctx: Context, private val capa: FrameLayout) {
         tv.setTransform(m)
     }
 
+    /**
+     * Los HTML de la app se abren tal cual. Uno recibido va encerrado: sin red, sin leer archivos desde JavaScript
+     * (así no puede llegar a la clave adb ni a los ajustes) y solo puede cargar lo que hay en su propia carpeta.
+     */
     @SuppressLint("SetJavaScriptEnabled")
     private fun html(c: String) {
+        val propio = c.startsWith("asset:")
+        val carpeta = if (propio) null else File(c).parentFile?.canonicalPath
         val w = WebView(ctx).apply {
             setBackgroundColor(Color.BLACK)
             isFocusable = false
             isFocusableInTouchMode = false
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
+            settings.domStorageEnabled = propio
             settings.mediaPlaybackRequiresUserGesture = false
-            settings.allowFileAccess = true
-            @Suppress("DEPRECATION")
-            settings.allowFileAccessFromFileURLs = true // para que el HTML use imágenes de su misma carpeta
+            settings.allowFileAccess = true            // sus imágenes, con <img>, de su misma carpeta
+            settings.allowContentAccess = false
+            settings.blockNetworkLoads = !propio
+            settings.javaScriptCanOpenWindowsAutomatically = false
+            settings.setSupportMultipleWindows(false)
+            settings.setGeolocationEnabled(false)
             // Los fondos de la app (Halloween) leen los píxeles de su imagen para recortar el árbol y el agua.
             @Suppress("DEPRECATION")
-            settings.allowUniversalAccessFromFileURLs = c.startsWith("asset:")
-            webViewClient = WebViewClient()
+            settings.allowFileAccessFromFileURLs = propio
+            @Suppress("DEPRECATION")
+            settings.allowUniversalAccessFromFileURLs = propio
+            webViewClient = if (propio) WebViewClient() else Encerrado(carpeta)
         }
         web = w
         capa.addView(w, lleno())
@@ -195,6 +220,18 @@ class Fondo(private val ctx: Context, private val capa: FrameLayout) {
             if (c.startsWith("asset:")) "file:///android_asset/fondos/" + c.removePrefix("asset:")
             else "file://$c"
         )
+    }
+
+    /** Un HTML recibido solo carga archivos de su carpeta y no navega a ningún sitio. */
+    private class Encerrado(private val carpeta: String?) : WebViewClient() {
+        override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest): WebResourceResponse? {
+            val u = r.url
+            val dentro = carpeta != null && u.scheme == "file" && u.path?.let {
+                try { File(it).canonicalPath.startsWith(carpeta + File.separator) } catch (e: Exception) { false }
+            } == true
+            return if (dentro) null else WebResourceResponse("text/plain", "utf-8", 403, "No", emptyMap(), null)
+        }
+        override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = true
     }
 
     private fun lleno() = FrameLayout.LayoutParams(

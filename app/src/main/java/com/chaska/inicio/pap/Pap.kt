@@ -160,7 +160,7 @@ object Pap {
         for ((parte, clave) in listOf(1 to aj.papIzq, 2 to aj.papDer)) {
             val si = suena(aj, parte)
             if (clave.startsWith(TV)) Visor.abiertos.filter { it.parte == parte }.forEach { it.sonido(si) }
-            else Adb.enSegundoPlano(ctx, "appops set $clave PLAY_AUDIO ${if (si) "allow" else "ignore"}")
+            else if (Adb.esPaquete(clave)) Adb.enSegundoPlano(ctx, "appops set $clave PLAY_AUDIO ${if (si) "allow" else "ignore"}")
         }
     }
 
@@ -206,7 +206,7 @@ object Pap {
     fun cerrar(ctx: Context, aj: Ajustes) {
         aj.papActivo = false
         tanda++                                       // para el colocador si seguía en marcha
-        val apps = listOf(aj.papIzq, aj.papDer).filter { !it.startsWith(TV) }
+        val apps = listOf(aj.papIzq, aj.papDer).filter { !it.startsWith(TV) && Adb.esPaquete(it) }
         Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
         FondoPap.actual?.finishAndRemoveTask()
         SelectorPap.actual?.finish()

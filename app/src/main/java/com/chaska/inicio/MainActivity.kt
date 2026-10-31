@@ -1045,6 +1045,7 @@ class MainActivity : Activity() {
                 is Recibidor.Evento.Poner -> { aj.fondo = e.clave; fondo.mostrar(e.clave); estado.text = "Puesto de fondo: ${nombreFondo(e.clave)}" }
                 is Recibidor.Evento.Borrado -> if (aj.fondo == e.clave) { aj.fondo = ""; fondo.mostrar("") }
                 is Recibidor.Evento.Renombrado -> if (aj.fondo == e.antes) { aj.fondo = e.ahora; fondo.mostrar(e.ahora) }
+                is Recibidor.Evento.Bloqueado -> estado.text = "Demasiados intentos con un número equivocado: se ha cerrado la recepción. Cierra y vuelve a abrir esta pantalla."
             }
         }
         val dir = r.direccion

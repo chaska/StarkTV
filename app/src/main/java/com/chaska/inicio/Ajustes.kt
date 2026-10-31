@@ -67,10 +67,14 @@ class Ajustes(ctx: Context) {
     }
 
     fun recuperarCopia(f: File) {
+        // La copia vive en /sdcard, donde otras apps pueden escribir: se acota todo lo que entra.
+        if (f.length() > 256 * 1024) return
         val o = JSONObject(f.readText())
         val ed = p.edit().clear()
         for (k in o.keys()) {
-            val e = o.getJSONObject(k)
+            if (!Regex("^[a-z0-9_]{1,40}$").matches(k)) continue
+            val e = o.optJSONObject(k) ?: continue
+            if (e.optString("t") == "s" && e.optString("v").length > 8000) continue
             when (e.getString("t")) {
                 "b" -> ed.putBoolean(k, e.getBoolean("v"))
                 "i" -> ed.putInt(k, e.getInt("v"))

@@ -11,16 +11,15 @@ android {
         applicationId = "com.chaska.inicio"
         minSdk = 30
         targetSdk = 34
-        versionCode = 54
-        versionName = "0.9.29"
+        versionCode = 55
+        versionName = "0.9.30"
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            // Firmado con la clave de depuración para instalar por adb sin más pasos.
-            signingConfig = signingConfigs.getByName("debug")
+            // Sin firma aquí: la release se firma con la clave propia de ChasKa (Generate Signed APK), que no está en el repositorio.
         }
     }
 

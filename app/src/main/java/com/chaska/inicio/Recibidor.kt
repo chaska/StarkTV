@@ -17,9 +17,11 @@ import kotlin.concurrent.thread
 
 /**
  * Recibe fondos desde el navegador del móvil o del ordenador, en la misma red.
- * Solo escucha mientras está abierta la pantalla «Recibir fondos» y solo atiende a quien
- * lleva en la dirección el número de 4 cifras que sale en la TV. Guarda en files/fondos
- * (no hace falta permiso de almacenamiento); un .zip con index.html se descomprime en su carpeta.
+ * Solo escucha mientras está abierta la pantalla «Recibir fondos», solo atiende a direcciones de la red de casa
+ * y solo a quien lleva en la dirección el número de 6 cifras que sale en la TV (aleatorio seguro, nuevo cada vez).
+ * Frenos: 5 fallos de número desde un aparato lo dejan fuera; 20 en total cierran la recepción.
+ * Cada archivo se comprueba y se limpia (Saneador) antes de guardarse en files/fondos; si no, no se guarda.
+ * Un .zip con index.html se descomprime en su carpeta, con tope de archivos y de tamaño y solo tipos permitidos.
  */
 class Recibidor(private val ctx: Context, private val actual: () -> String, private val alCambiar: (Evento) -> Unit) {
     sealed class Evento {
@@ -27,11 +29,17 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
         class Poner(val clave: String) : Evento()
         class Borrado(val clave: String) : Evento()
         class Renombrado(val antes: String, val ahora: String) : Evento()
+        /** Demasiados números equivocados: se ha cerrado la recepción. */
+        class Bloqueado : Evento()
     }
 
-    val codigo = (1000..9999).random().toString()
+    val codigo = String.format("%06d", java.security.SecureRandom().nextInt(1_000_000))
     private var servidor: ServerSocket? = null
     private val principal = Handler(Looper.getMainLooper())
+    private val huecos = java.util.concurrent.Semaphore(4)               // conexiones a la vez
+    private val subiendo = java.util.concurrent.atomic.AtomicBoolean()    // una subida cada vez
+    private val fallos = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    private val fallosTotales = java.util.concurrent.atomic.AtomicInteger()
 
     /** Dirección para escribir en el navegador, o null si la TV no tiene red. */
     val direccion: String? get() = ip()?.let { "http://$it:$PUERTO/$codigo/" }
@@ -43,7 +51,8 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
         thread(name = "recibidor", isDaemon = true) {
             while (!s.isClosed) {
                 val c = try { s.accept() } catch (e: Exception) { break }
-                thread(isDaemon = true) { c.use { atender(it) } }
+                if (!huecos.tryAcquire()) { try { c.close() } catch (_: Exception) {}; continue }
+                thread(isDaemon = true) { try { c.use { atender(it) } } catch (_: Exception) {} finally { huecos.release() } }
             }
         }
     }
@@ -56,7 +65,12 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
     // ---------- HTTP mínimo: una petición por conexión ----------
 
     private fun atender(c: Socket) {
-        c.soTimeout = 30_000
+        // Solo la red de casa (y la propia TV); quien ya ha fallado 5 veces el número, ni se le contesta.
+        val quien = c.inetAddress
+        if (!(quien.isSiteLocalAddress || quien.isLoopbackAddress || quien.isLinkLocalAddress)) return
+        val ip = quien.hostAddress ?: return
+        if ((fallos[ip] ?: 0) >= 5) return
+        c.soTimeout = 15_000
         val ent = BufferedInputStream(c.getInputStream(), 64 * 1024)
         val sal = c.getOutputStream()
         val primera = linea(ent) ?: return
@@ -64,9 +78,11 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
         if (partes.size < 2) return
         val metodo = partes[0]
         var largo = -1L
+        var cabeceras = 0
         while (true) {
             val h = linea(ent) ?: return
             if (h.isEmpty()) break
+            if (++cabeceras > 50) return
             if (h.startsWith("content-length:", ignoreCase = true)) largo = h.substringAfter(':').trim().toLongOrNull() ?: -1L
         }
         val ruta = partes[1].substringBefore('?')
@@ -76,7 +92,11 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
         }.toMap()
         val base = "/$codigo"
         if (ruta == base) return responder(sal, 302, "text/plain", "", "Location: $base/")
-        if (!ruta.startsWith("$base/")) return responder(sal, 403, "text/plain; charset=utf-8", "Falta el número que sale en la TV.")
+        if (ruta != base && !ruta.startsWith("$base/")) {
+            fallos.merge(ip, 1, Int::plus)
+            if (fallosTotales.incrementAndGet() >= 20) { parar(); avisar(Evento.Bloqueado()) }
+            return responder(sal, 403, "text/plain; charset=utf-8", "Falta el número que sale en la TV.")
+        }
         when ("$metodo ${ruta.removePrefix(base)}") {
             "GET /" -> responder(sal, 200, "text/html; charset=utf-8", PAGINA)
             "GET /lista" -> responder(sal, 200, "application/json; charset=utf-8", lista())
@@ -119,6 +139,11 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
     }
 
     private fun subir(ent: InputStream, sal: OutputStream, nombre: String?, largo: Long) {
+        if (!subiendo.compareAndSet(false, true)) return responder(sal, 429, "text/plain; charset=utf-8", "Ya se está recibiendo otro archivo")
+        try { subirUno(ent, sal, nombre, largo) } finally { subiendo.set(false) }
+    }
+
+    private fun subirUno(ent: InputStream, sal: OutputStream, nombre: String?, largo: Long) {
         val n = nombre?.let { limpio(it) }
         val ext = n?.substringAfterLast('.', "")?.lowercase()
         if (n == null || ext !in ADMITIDOS) return responder(sal, 400, "text/plain; charset=utf-8", "Tipo no admitido")
@@ -127,7 +152,9 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
         val tmp = File(carpeta(), ".subiendo-$n")
         try {
             tmp.outputStream().use { o -> copiar(ent, o, largo) }
-            val final = if (ext == "zip") descomprimir(tmp, n.substringBeforeLast('.')) else File(carpeta(), n).also { it.delete(); tmp.renameTo(it) }
+            // Se comprueba que es lo que dice ser y se le quitan los metadatos; si no se puede, no se guarda.
+            val final = if (ext == "zip") descomprimir(tmp, n.substringBeforeLast('.'))
+                else { Saneador.limpiar(tmp, ext!!); File(carpeta(), n).also { it.delete(); if (!tmp.renameTo(it)) throw IllegalStateException("No se pudo guardar") } }
             tmp.delete()
             avisar(Evento.Recibido(final.name))
             responder(sal, 200, "text/plain", final.name)
@@ -137,18 +164,44 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
         }
     }
 
-    /** Un HTML5 con sus imágenes: se descomprime en su carpeta, que debe tener un index.html. */
+    /**
+     * Un HTML5 con sus imágenes: se descomprime en su carpeta, que debe tener un index.html.
+     * Solo tipos de la lista ZIP_SI (lo demás se descarta), como mucho 500 archivos y 300 MB en total,
+     * y cada imagen, vídeo o HTML pasa por el Saneador. Si algo falla, no queda nada.
+     */
     private fun descomprimir(zip: File, nombre: String): File {
         val dest = File(carpeta(), nombre).apply { deleteRecursively(); mkdirs() }
         val raiz = dest.canonicalPath + File.separator
-        ZipInputStream(zip.inputStream().buffered()).use { z ->
-            while (true) {
-                val e = z.nextEntry ?: break
-                val f = File(dest, e.name)
-                if (!f.canonicalPath.startsWith(raiz)) continue          // nada fuera de su carpeta
-                if (e.isDirectory) f.mkdirs() else { f.parentFile?.mkdirs(); f.outputStream().use { z.copyTo(it) } }
+        try {
+            var archivos = 0
+            var total = 0L
+            ZipInputStream(zip.inputStream().buffered()).use { z ->
+                while (true) {
+                    val e = z.nextEntry ?: break
+                    if (e.isDirectory || e.name.contains('\\')) continue
+                    val ext = e.name.substringAfterLast('.', "").lowercase()
+                    if (ext !in ZIP_SI) continue
+                    val f = File(dest, e.name)
+                    if (!f.canonicalPath.startsWith(raiz)) continue          // nada fuera de su carpeta
+                    if (++archivos > 500) throw Saneador.Rechazado("El .zip lleva demasiados archivos")
+                    f.parentFile?.mkdirs()
+                    f.outputStream().use { o ->
+                        val buf = ByteArray(64 * 1024)
+                        while (true) {
+                            val n = z.read(buf); if (n < 0) break
+                            total += n
+                            if (total > ZIP_MAXIMO) throw Saneador.Rechazado("El .zip descomprimido pasa de 300 MB")
+                            o.write(buf, 0, n)
+                        }
+                    }
+                    when (ext) {
+                        in TEXTO -> if (f.readBytes().any { it == 0.toByte() }) throw Saneador.Rechazado("${e.name} no es texto")
+                        in FUENTES -> {}
+                        else -> Saneador.limpiar(f, ext)
+                    }
+                }
             }
-        }
+        } catch (x: Exception) { dest.deleteRecursively(); throw x }
         // Si todo venía dentro de una sola carpeta, se sube un nivel para que index.html quede arriba.
         val hijos = dest.listFiles().orEmpty()
         if (!File(dest, "index.html").exists() && hijos.size == 1 && File(hijos[0], "index.html").exists()) {
@@ -197,6 +250,8 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
         val b = cuerpo.toByteArray()
         val cab = buildString {
             append("HTTP/1.1 $codigo X\r\nContent-Type: $tipo\r\nContent-Length: ${b.size}\r\nConnection: close\r\nCache-Control: no-store\r\n")
+            append("X-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nReferrer-Policy: no-referrer\r\n")
+            append("Content-Security-Policy: default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self'; frame-ancestors 'none'; form-action 'none'\r\n")
             if (extra != null) append(extra).append("\r\n")
             append("\r\n")
         }
@@ -206,7 +261,12 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
     companion object {
         const val PUERTO = 8765
         private const val MAXIMO = 1024L * 1024 * 1024
-        private val ADMITIDOS = setOf("webp", "jpg", "jpeg", "png", "gif", "avif", "mp4", "webm", "mkv", "mov", "html", "htm", "zip")
+        private val ADMITIDOS = setOf("webp", "jpg", "jpeg", "png", "gif", "mp4", "webm", "mkv", "mov", "html", "htm", "zip")
+        /** Lo que se saca de un .zip de HTML5; lo demás se descarta. */
+        private val TEXTO = setOf("js", "css", "json", "txt", "svg")
+        private val FUENTES = setOf("woff", "woff2", "ttf", "otf")
+        private val ZIP_SI = setOf("html", "htm", "webp", "png", "jpg", "jpeg", "gif", "mp4", "webm") + TEXTO + FUENTES
+        private const val ZIP_MAXIMO = 300L * 1024 * 1024
 
         /** Solo el nombre, sin rutas ni caracteres raros. */
         fun limpio(n: String): String? {
@@ -253,9 +313,9 @@ class Recibidor(private val ctx: Context, private val actual: () -> String, priv
   @media (max-width: 480px) { li { flex-wrap: wrap; } li span { flex-basis: 100%; } }
 </style></head><body><main>
 <h1>Fondos para Stark TV</h1>
-<p>Imágenes (webp, jpg, png, gif), vídeos (mp4, webm, mkv) o HTML5. Un HTML5 con imágenes propias, en un .zip con su index.html.</p>
+<p>Imágenes (webp, jpg, png, gif), vídeos (mp4, webm, mkv, mov) o HTML5. Un HTML5 con imágenes propias, en un .zip con su index.html. La TV comprueba cada archivo y le quita los datos ocultos (ubicación, cámara, fecha…) antes de guardarlo.</p>
 <label class="subir" id="zona"><b>Elegir archivos</b>o arrastrarlos aquí
-  <input type="file" id="archivos" multiple accept=".webp,.jpg,.jpeg,.png,.gif,.avif,.mp4,.webm,.mkv,.mov,.html,.htm,.zip"></label>
+  <input type="file" id="archivos" multiple accept=".webp,.jpg,.jpeg,.png,.gif,.mp4,.webm,.mkv,.mov,.html,.htm,.zip"></label>
 <div class="barra"><i id="progreso"></i></div>
 <div class="estado" id="estado"></div>
 <h2>En la TV</h2>

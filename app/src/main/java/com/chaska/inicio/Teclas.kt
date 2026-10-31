@@ -26,7 +26,8 @@ class Teclas : AccessibilityService() {
 
     override fun onKeyEvent(e: KeyEvent): Boolean {
         if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0)
-            Log.i(TAG, "tecla ${e.keyCode} ${KeyEvent.keyCodeToString(e.keyCode)} scan=${e.scanCode} delante=$delante")
+            // Solo para depurar (adb shell setprop log.tag.InicioTV DEBUG): no se registra lo que se pulsa.
+            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "tecla ${e.keyCode} ${KeyEvent.keyCodeToString(e.keyCode)} scan=${e.scanCode} delante=$delante")
         // Con el PAP en marcha, Android TV no vuelve al inicio con la tecla Inicio (intenta abrir
         // «todas las apps» y falla). Inicio corto abre el selector; mantenido, sale del PAP.
         // Selector del PAP abierto (no tiene foco, para no molestar a la app de debajo): las teclas van a él.

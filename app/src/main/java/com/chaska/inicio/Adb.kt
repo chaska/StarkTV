@@ -24,9 +24,18 @@ object Adb {
     @Volatile var conectado = false
         private set
 
-    /** Ejecuta una orden de shell; null si no hay conexión. Bloquea: no llamar en el hilo principal. */
+    /** Nombre de paquete de Android de verdad (com.ejemplo.app): lo único que se deja meter en una orden. */
+    fun esPaquete(s: String) = s.length <= 150 && rePaquete.matches(s)
+    private val rePaquete = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")
+    /** Caracteres que usan nuestras órdenes; con cualquier otro (| & $ ` > ' " salto de línea…) no se ejecuta. */
+    private val reOrden = Regex("^[A-Za-z0-9 ._;=-]+$")
+
+    /** Ejecuta una orden de shell; null si no hay conexión o si la orden trae algo raro. Bloquea: no llamar en el hilo principal. */
     @Synchronized
-    fun shell(ctx: Context, orden: String): String? = try {
+    fun shell(ctx: Context, orden: String): String? = if (!reOrden.matches(orden)) {
+        Log.w(TAG, "adb: orden rechazada por caracteres no permitidos")
+        null
+    } else try {
         val d = conexion ?: abrir(ctx).also { conexion = it }
         val r = d.shell(orden)
         conectado = true
