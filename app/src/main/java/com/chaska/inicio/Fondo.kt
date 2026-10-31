@@ -50,7 +50,7 @@ object CatalogoFondos {
     fun todos(ctx: Context): List<OpcionFondo> {
         val res = mutableListOf<OpcionFondo>()
         ctx.assets.list("fondos")?.sorted()?.forEach { f ->
-            tipoDe(f)?.let { res += OpcionFondo("asset:$f", "★ " + f.substringBeforeLast('.'), it) }
+            tipoDe(f)?.let { res += OpcionFondo("asset:$f", "Incluido · " + f.substringBeforeLast('.'), it) }
         }
         for (dir in carpetas()) {
             // Una subcarpeta con index.html (y sus imágenes) también vale: Fondos/humo/index.html

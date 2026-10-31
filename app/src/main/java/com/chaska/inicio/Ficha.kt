@@ -16,7 +16,6 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.SweepGradient
-import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.SystemClock
 import android.view.View
@@ -38,13 +37,15 @@ class Ficha(
 ) : View(ctx) {
     private val d = resources.displayMetrics.density
     private val esFav = paquete == null
-    private val ancho = ANCHOS[tam.coerceIn(0, 2)] * d * (if (esFav) 0.66f else 1f)
-    private val alto = ANCHOS[tam.coerceIn(0, 2)] * d * 9f / 16f
+    private val ancho = ANCHOS[tam.coerceIn(0, 3)] * d * (if (esFav) 0.66f else 1f)
+    private val alto = ANCHOS[tam.coerceIn(0, 3)] * d * 9f / 16f
     private val pad = 26f * d                         // sitio para el halo y para crecer con el foco
     private val radio = 12f * d
     private val altoNombre = if (conNombre) 22f * d else 0f
     private val altoReflejo = if (conReflejo) alto * 0.4f else 0f
     private val r = RectF(pad, pad, pad + ancho, pad + alto)
+    /** Rectángulo de la ficha dentro de la vista (sin el margen del halo). */
+    val zona: RectF get() = RectF(r)
     private val rGiro = RectF(r).apply { inset(-3f * d, -3f * d) }
     private val camino = Path().apply { addRoundRect(r, radio, radio, Path.Direction.CW) }
 
@@ -101,16 +102,23 @@ class Ficha(
         color = if (esFav) 0xFF2B1A03.toInt() else Color.WHITE
         textSize = alto * .16f
         textAlign = Paint.Align.CENTER
-        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        typeface = Fuentes.medio(ctx)
         if (esFav) setShadowLayer(d, 0f, d, 0x99FFF0C8.toInt()) else setShadowLayer(4f * d, 0f, d, 0x73000000)
     }
-    private val pEstrella = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFF2A93B.toInt()
-        textSize = alto * .17f
-        textAlign = Paint.Align.CENTER
-        setShadowLayer(8f * d, 0f, 0f, 0xE6FFC85A.toInt())
+    private val estrella = Icono(Icono.Tipo.ESTRELLA_LLENA, 0xFFF2A93B.toInt(), 0).apply {
+        val l = (alto * .16f).toInt()
+        val x = (r.right - 8f * d - l).toInt()
+        val y = (r.top + 7f * d).toInt()
+        setBounds(x, y, x + l, y + l)
+    }
+    private val estrellaFav = Icono(Icono.Tipo.ESTRELLA, 0xFF3A2405.toInt(), 0).apply {
+        val l = (alto * .3f).toInt()
+        val x = (r.centerX() - l / 2).toInt()
+        val y = (r.centerY() - alto * .3f).toInt()
+        setBounds(x, y, x + l, y + l)
     }
     private val pNombre = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = Fuentes.normal(ctx)
         color = 0xB8FFFFFF.toInt()
         textSize = 12f * d
         textAlign = Paint.Align.CENTER
@@ -207,7 +215,7 @@ class Ficha(
         if (!activo) c.drawPath(camino, pApagado)
         c.drawRoundRect(r, radio, radio, if (activo) pBordeFoco else pBorde)
         if (activo && animado) { giro(c); destello(c) }
-        if (esFavorita) c.drawText("★", r.right - 14f * d, r.top + 20f * d, pEstrella)
+        if (esFavorita) estrella.draw(c)
         if (conNombre) c.drawText(nombre, r.centerX(), r.bottom + 17f * d, pNombre)
     }
 
@@ -222,8 +230,8 @@ class Ficha(
             }
             esFav -> {
                 val y = r.centerY()
-                c.drawText("☆", r.centerX(), y - alto * .02f, pTexto.apply { textSize = alto * .3f })
-                c.drawText("Favoritos", r.centerX(), y + alto * .26f, pTexto.apply { textSize = alto * .15f })
+                estrellaFav.draw(c)
+                c.drawText("Favoritos", r.centerX(), y + alto * .28f, pTexto.apply { textSize = alto * .15f })
             }
             else -> {
                 val lado = (alto * .42f).toInt()
@@ -272,7 +280,7 @@ class Ficha(
     }
 
     companion object {
-        val ANCHOS = floatArrayOf(144f, 176f, 208f)
+        val ANCHOS = floatArrayOf(112f, 144f, 176f, 208f)
 
         /** -1 si te mueves a la izquierda, 1 a la derecha: la ficha que recibe el foco se inclina hacia ahí. */
         var inclinacionActual = 0f

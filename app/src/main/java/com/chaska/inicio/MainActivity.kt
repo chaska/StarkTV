@@ -7,7 +7,6 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Shader
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import android.net.Uri
@@ -32,8 +31,8 @@ import android.widget.TextView
 import java.io.File
 
 /**
- * Pantalla de inicio: fondo + luces, botón Ajustes, reloj con el tiempo y el carrusel
- * (Favoritos primero y luego todas las apps). Menús y ajustes en paneles de cristal.
+ * Pantalla de inicio: fondo + luces, botón Ajustes, reloj con el tiempo, ventanita de TDT (opcional)
+ * y el dock (Favoritos primero y luego todas las apps) en una de 6 posiciones.
  */
 class MainActivity : Activity() {
     private val aj by lazy { Ajustes(this) }
@@ -50,13 +49,16 @@ class MainActivity : Activity() {
     private lateinit var titulo: TextView
     private lateinit var fila: LinearLayout
     private lateinit var aviso: TextView
+    private lateinit var ventana: VentanaTv
     private lateinit var salva: LinearLayout
     private lateinit var salvaTiempo: TextView
+    private var zonaDock: LinearLayout? = null
 
     private var dialogo: Dialog? = null
     private var moviendo: Ficha? = null
     private var firma = ""
     private var textoTiempo: String? = null
+    private var codigoTiempo = 3
     private var ultimoTiempo = 0L
     private var ultimaTecla = SystemClock.uptimeMillis()
     private var ultimaRotacion = SystemClock.uptimeMillis()
@@ -70,8 +72,11 @@ class MainActivity : Activity() {
     }
     private val ocultarAviso = Runnable { if (moviendo == null) aviso.visibility = View.GONE }
 
+    private val vertical get() = Ajustes.esVertical(aj.dock)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Fuentes.actual = aj.fuente
         val raiz = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         val capa = FrameLayout(this)
         raiz.addView(capa, lleno())
@@ -86,6 +91,12 @@ class MainActivity : Activity() {
         salva = construirSalva()
         raiz.addView(salva, lleno())
         setContentView(raiz)
+        // Tras cambiar la fuente la pantalla se rehace: se vuelve a abrir Ajustes donde estaba.
+        if (reabrirAjustes >= 0) {
+            val k = reabrirAjustes
+            reabrirAjustes = -1
+            contenido.post { abrirAjustes(k) }
+        }
     }
 
     override fun onStart() {
@@ -93,14 +104,16 @@ class MainActivity : Activity() {
         aplicar()
         fondo.mostrar(aj.fondo)
         pintarCarrusel()
+        if (aj.tvVentana) ventana.encender()
         ultimaTecla = SystemClock.uptimeMillis()
         reloj.removeCallbacks(tic)
         reloj.post(tic)
     }
 
     override fun onStop() {
-        // Fuera del inicio el fondo no gasta nada.
+        // Fuera del inicio el fondo y la TDT no gastan nada.
         fondo.liberar()
+        ventana.apagar()
         reloj.removeCallbacks(tic)
         soltar()
         salirSalva(false)
@@ -109,7 +122,7 @@ class MainActivity : Activity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Pulsar Inicio estando ya aquí: cierra todo y vuelve al principio del carrusel.
+        // Pulsar Inicio estando ya aquí: cierra todo y vuelve al principio del dock.
         dialogo?.dismiss()
         soltar()
         salirSalva(false)
@@ -124,22 +137,26 @@ class MainActivity : Activity() {
         }
         val m = moviendo
         if (m != null) {
+            val atras = if (vertical) KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_LEFT
+            val alante = if (vertical) KeyEvent.KEYCODE_DPAD_DOWN else KeyEvent.KEYCODE_DPAD_RIGHT
             when (e.keyCode) {
-                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    if (e.action == KeyEvent.ACTION_DOWN) moverPaso(m, if (e.keyCode == KeyEvent.KEYCODE_DPAD_LEFT) -1 else 1)
+                atras, alante -> {
+                    if (e.action == KeyEvent.ACTION_DOWN) moverPaso(m, if (e.keyCode == atras) -1 else 1)
                     return true
                 }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BACK -> {
                     if (e.action == KeyEvent.ACTION_UP) soltar()
                     return true
                 }
-                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> return true
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
+                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> return true
             }
         }
-        if (e.action == KeyEvent.ACTION_DOWN) when (e.keyCode) {
-            KeyEvent.KEYCODE_DPAD_LEFT -> Ficha.inclinacionActual = -1f
-            KeyEvent.KEYCODE_DPAD_RIGHT -> Ficha.inclinacionActual = 1f
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> Ficha.inclinacionActual = 0f
+        if (e.action == KeyEvent.ACTION_DOWN) Ficha.inclinacionActual = when {
+            vertical -> 0f
+            e.keyCode == KeyEvent.KEYCODE_DPAD_LEFT -> -1f
+            e.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> 1f
+            else -> 0f
         }
         if (e.keyCode == KeyEvent.KEYCODE_BACK) return true
         return super.dispatchKeyEvent(e)
@@ -149,10 +166,9 @@ class MainActivity : Activity() {
 
     private fun construirInicio() {
         botonAjustes = TextView(this).apply {
-            text = "⚙  Ajustes"
-            textSize = 15f
-            setTextColor(Color.WHITE)
-            setPadding(dp(16), dp(9), dp(16), dp(9))
+            contentDescription = "Ajustes"
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            setCompoundDrawablesRelative(icono(Icono.Tipo.AJUSTES, Color.WHITE, 22), null, null, null)
             isFocusable = true
             elevation = dp(6).toFloat()
             setOnClickListener { abrirAjustes() }
@@ -166,7 +182,7 @@ class MainActivity : Activity() {
             }
         }
         contenido.addView(botonAjustes, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-            Gravity.TOP or Gravity.START).apply { setMargins(dp(40), dp(30), 0, 0) })
+            Gravity.TOP or Gravity.START).apply { setMargins(dp(22), dp(16), 0, 0) })
 
         val bloque = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
         hora = relojDegradado(40f)
@@ -175,43 +191,36 @@ class MainActivity : Activity() {
             textSize = 14f
             setTextColor(0xC8FFFFFF.toInt())
             setShadowLayer(dp(6).toFloat(), 0f, dp(1).toFloat(), 0x99000000.toInt())
-        }
+        }.conFuente()
         tiempo = TextView(this).apply {
             textSize = 13f
             setTextColor(0xE6FFFFFF.toInt())
-            setPadding(dp(10), dp(3), dp(10), dp(3))
+            setPadding(dp(8), dp(3), dp(10), dp(3))
+            compoundDrawablePadding = dp(6)
+            gravity = Gravity.CENTER_VERTICAL
             background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0x1FFFFFFF, 0x08FFFFFF)).apply {
                 cornerRadius = dp(20).toFloat(); setStroke(dp(1), 0x22FFFFFF)
             }
             visibility = View.GONE
-        }
+        }.conFuente()
         bloque.addView(hora)
         bloque.addView(fecha)
         bloque.addView(tiempo, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
         contenido.addView(bloque, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             Gravity.TOP or Gravity.END).apply { setMargins(0, dp(22), dp(40), 0) })
 
-        val abajo = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false }
+        ventana = VentanaTv(this, aj.colorSel).apply {
+            visibility = View.GONE
+            setOnClickListener { abrirTdt() }
+        }
+        contenido.addView(ventana)
+
         titulo = TextView(this).apply {
             textSize = 14f
             setTextColor(0xB8FFFFFF.toInt())
             setShadowLayer(dp(8).toFloat(), 0f, 0f, 0xCC000000.toInt())
-        }
-        abajo.addView(titulo, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            marginStart = dp(44); bottomMargin = -dp(14)
-        })
-        fila = LinearLayout(this).apply { clipChildren = false; clipToPadding = false; gravity = Gravity.TOP }
-        val scroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            clipChildren = false
-            clipToPadding = false
-            isFocusable = false
-            setPadding(dp(14), 0, dp(40), 0)
-            addView(fila)
-        }
-        abajo.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        contenido.addView(abajo, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-            Gravity.BOTTOM).apply { bottomMargin = dp(6) })
+        }.conFuente()
+        fila = LinearLayout(this).apply { clipChildren = false; clipToPadding = false }
 
         aviso = TextView(this).apply {
             textSize = 15f
@@ -222,9 +231,60 @@ class MainActivity : Activity() {
             }
             elevation = dp(20).toFloat()
             visibility = View.GONE
-        }
+        }.conFuente()
         contenido.addView(aviso, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = (resources.displayMetrics.heightPixels * .33f).toInt() })
+        montarDock()
+    }
+
+    /** Coloca el dock según el ajuste: horizontal abajo/centro/arriba o vertical izquierda/centro/derecha. */
+    private fun montarDock() {
+        zonaDock?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        (titulo.parent as? ViewGroup)?.removeView(titulo)
+        (fila.parent as? ViewGroup)?.removeView(fila)
+        val v = vertical
+        fila.orientation = if (v) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+        val scroll: ViewGroup = if (v) ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            setPadding(0, 0, 0, dp(30))
+        } else HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            setPadding(dp(14), 0, dp(40), 0)
+        }
+        scroll.clipChildren = false
+        scroll.clipToPadding = false
+        scroll.isFocusable = false
+        scroll.addView(fila)
+        val zona = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false }
+        zona.addView(titulo, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            marginStart = dp(if (v) 30 else 44); bottomMargin = dp(2)
+        })
+        zona.addView(scroll, if (v) LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, 0, 1f)
+            else LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val ancho = ViewGroup.LayoutParams.MATCH_PARENT
+        val alto = ViewGroup.LayoutParams.WRAP_CONTENT
+        val lp = when (aj.dock) {
+            0 -> FrameLayout.LayoutParams(ancho, alto, Gravity.BOTTOM).apply { bottomMargin = dp(6) }
+            1 -> FrameLayout.LayoutParams(ancho, alto, Gravity.CENTER_VERTICAL)
+            2 -> FrameLayout.LayoutParams(ancho, alto, Gravity.TOP).apply { topMargin = dp(100) }
+            3 -> FrameLayout.LayoutParams(alto, ancho, Gravity.START).apply { topMargin = dp(84); marginStart = dp(14) }
+            4 -> FrameLayout.LayoutParams(alto, ancho, Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(84) }
+            else -> FrameLayout.LayoutParams(alto, ancho, Gravity.END).apply { topMargin = dp(150); marginEnd = dp(14) }
+        }
+        contenido.addView(zona, contenido.indexOfChild(aviso), lp)
+        zonaDock = zona
+        colocarVentana()
+    }
+
+    /** La ventanita de TDT va en la esquina que deja libre el dock. */
+    private fun colocarVentana() {
+        val lp = FrameLayout.LayoutParams(dp(288), dp(162))
+        when (aj.dock) {
+            0 -> { lp.gravity = Gravity.TOP or Gravity.START; lp.topMargin = dp(76); lp.marginStart = dp(24) }
+            3 -> { lp.gravity = Gravity.BOTTOM or Gravity.END; lp.bottomMargin = dp(32); lp.marginEnd = dp(40) }
+            else -> { lp.gravity = Gravity.BOTTOM or Gravity.START; lp.bottomMargin = dp(32); lp.marginStart = dp(40) }
+        }
+        ventana.layoutParams = lp
     }
 
     private fun construirSalva(): LinearLayout = LinearLayout(this).apply {
@@ -237,8 +297,14 @@ class MainActivity : Activity() {
             format24Hour = "EEEE, d 'de' MMMM"; format12Hour = format24Hour
             textSize = 22f
             setTextColor(0xC8FFFFFF.toInt())
-        })
-        salvaTiempo = TextView(this@MainActivity).apply { textSize = 18f; setTextColor(0xC8FFFFFF.toInt()); setPadding(0, dp(8), 0, 0) }
+        }.conFuente())
+        salvaTiempo = TextView(this@MainActivity).apply {
+            textSize = 18f
+            setTextColor(0xC8FFFFFF.toInt())
+            setPadding(0, dp(8), 0, 0)
+            compoundDrawablePadding = dp(8)
+            gravity = Gravity.CENTER_VERTICAL
+        }.conFuente()
         addView(salvaTiempo)
     }
 
@@ -246,14 +312,13 @@ class MainActivity : Activity() {
     private fun relojDegradado(tam: Float) = TextClock(this).apply {
         format24Hour = "HH:mm"; format12Hour = "HH:mm"
         textSize = tam
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         setTextColor(Color.WHITE)
         setShadowLayer(dp(14).toFloat(), 0f, 0f, 0x668CB4FF)
         addOnLayoutChangeListener { v, _, top, _, bottom, _, _, _, _ ->
             (v as TextView).paint.shader = LinearGradient(0f, 0f, 0f, (bottom - top).toFloat(),
                 Color.WHITE, 0xFFC9D4EA.toInt(), Shader.TileMode.CLAMP)
         }
-    }
+    }.conFuente(medio = true)
 
     private fun fondoBoton() = StateListDrawable().apply {
         addState(intArrayOf(android.R.attr.state_focused),
@@ -266,6 +331,8 @@ class MainActivity : Activity() {
             })
     }
 
+    private fun icono(t: Icono.Tipo, color: Int, lado: Int) = Icono(t, color, dp(lado)).apply { setBounds(0, 0, dp(lado), dp(lado)) }
+
     // ---------- Estado ----------
 
     private fun aplicar() {
@@ -274,11 +341,13 @@ class MainActivity : Activity() {
         fecha.visibility = hora.visibility
         tiempo.visibility = if (aj.tiempo && textoTiempo != null) View.VISIBLE else View.GONE
         botonAjustes.background = fondoBoton()
+        ventana.visibility = if (aj.tvVentana) View.VISIBLE else View.GONE
+        titulo.visibility = if (aj.tituloDock) View.VISIBLE else View.GONE
     }
 
-    private fun firmaActual() = listOf(lista.orden(), lista.favoritas(), aj.tamano, aj.nombres, aj.reflejo, aj.animaciones).toString()
+    private fun firmaActual() = listOf(lista.orden(), lista.favoritas(), aj.tamano, aj.nombres, aj.reflejo, aj.animaciones, aj.dock).toString()
 
-    /** Rehace el carrusel solo si algo cambió (orden, favoritas, tamaño…): volver al inicio es instantáneo. */
+    /** Rehace el dock solo si algo cambió (orden, favoritas, tamaño…): volver al inicio es instantáneo. */
     private fun pintarCarrusel(forzar: Boolean = false) {
         val nueva = firmaActual()
         if (!forzar && nueva == firma && fila.childCount > 0) return
@@ -286,12 +355,13 @@ class MainActivity : Activity() {
         val enfocado = (currentFocus as? Ficha)?.paquete
         val orden = lista.orden()
         val favs = lista.favoritas()
+        val v = vertical
         fila.removeAllViews()
-        val sep = dp(18) - 2 * dp(26)    // las fichas llevan margen interno para el halo
+        val sep = dp(if (v) 12 else 18) - 2 * dp(26)    // las fichas llevan margen interno para el halo
         fun anadir(f: Ficha) {
             f.alEnfocar = { x -> x.postDelayed({ apuntarLuz(x, x.color, x.pivotX, x.pivotY) }, 120) }
             fila.addView(f, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                if (fila.childCount > 0) marginStart = sep
+                if (fila.childCount > 0) { if (v) topMargin = sep else marginStart = sep }
             })
         }
         anadir(nuevaFicha(null).apply { setOnClickListener { abrirFavoritos() } })
@@ -307,7 +377,8 @@ class MainActivity : Activity() {
         objetivo?.requestFocus()
     }
 
-    private fun nuevaFicha(p: String?) = Ficha(this, p, aj.tamano, aj.reflejo, aj.nombres, aj.animaciones)
+    // En vertical no hay suelo debajo de cada ficha: sin reflejo.
+    private fun nuevaFicha(p: String?) = Ficha(this, p, aj.tamano, aj.reflejo && !vertical, aj.nombres, aj.animaciones)
 
     private fun fichas(): List<Ficha> = (0 until fila.childCount).mapNotNull { fila.getChildAt(it) as? Ficha }
 
@@ -330,6 +401,11 @@ class MainActivity : Activity() {
         try { startActivity(i) } catch (e: Exception) { avisar("No se puede abrir") }
     }
 
+    private fun abrirTdt() {
+        val tdt = listOf("com.mediatek.wwtv.tvcenter").firstOrNull { Apps.intentDe(this, it) != null }
+        if (tdt != null) abrir(tdt) else avisar("No encuentro la app de la TDT")
+    }
+
     private fun avisar(t: String) {
         aviso.text = t
         aviso.visibility = View.VISIBLE
@@ -342,33 +418,47 @@ class MainActivity : Activity() {
         val ancho = dp(290)
         val panel = Vidrio.panel(this, f.nombre, ancho)
         val esFav = p in lista.favoritas()
-        fun op(t: String, accion: () -> Unit) = panel.addView(Fila(this, t, aj.colorSel).apply {
+        fun op(t: String, ic: Icono.Tipo, accion: () -> Unit) = panel.addView(Fila(this, t, aj.colorSel, ic).apply {
             setOnClickListener { dialogo?.dismiss(); accion() }
         }, filaLp())
-        op(if (esFav) "★  Quitar de favoritos" else "☆  Añadir a favoritos") {
+        op(if (esFav) "Quitar de favoritos" else "Añadir a favoritos", if (esFav) Icono.Tipo.ESTRELLA_LLENA else Icono.Tipo.ESTRELLA) {
             if (esFav) lista.quitarFavorita(p)
             else if (!lista.anadirFavorita(p)) avisar("Favoritos llenos: quita una antes (máximo 6)")
             refrescarEstrellas()
         }
-        op("⇆  Mover") { entrarMover(f) }
-        op("⊘  Ocultar de la barra") {
+        op("Mover", Icono.Tipo.MOVER) { entrarMover(f) }
+        op("Ocultar de la barra", Icono.Tipo.OCULTAR) {
             lista.ocultar(p)
             pintarCarrusel(forzar = true)
             avisar("Oculta. Se recupera en Ajustes del launcher")
         }
-        op("ⓘ  Información de la app") {
+        op("Información de la app", Icono.Tipo.INFO) {
             try {
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", p, null))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             } catch (e: Exception) { avisar("No disponible") }
         }
-        // Encima de la ficha.
+        // Junto a la ficha: encima o debajo si el dock es horizontal, al lado si es vertical.
+        panel.measure(View.MeasureSpec.makeMeasureSpec(ancho, View.MeasureSpec.EXACTLY), View.MeasureSpec.UNSPECIFIED)
+        val altoMenu = panel.measuredHeight
         val loc = IntArray(2)
         f.getLocationOnScreen(loc)
-        val pantalla = resources.displayMetrics
-        val x = (loc[0] + f.pivotX - ancho / 2f).toInt().coerceIn(dp(24), pantalla.widthPixels - ancho - dp(24))
-        val y = pantalla.heightPixels - loc[1] - dp(14)
-        dialogo = Vidrio.dialogo(this, panel, aj, Gravity.BOTTOM or Gravity.START, x, y)
+        val z = f.zona
+        val izq = loc[0] + z.left; val der = loc[0] + z.right
+        val arr = loc[1] + z.top; val aba = loc[1] + z.bottom
+        val pw = resources.displayMetrics.widthPixels
+        val ph = resources.displayMetrics.heightPixels
+        val x: Int
+        val y: Int
+        if (vertical) {
+            x = (if ((izq + der) / 2 < pw / 2) der + dp(24) else izq - ancho - dp(24)).toInt()
+            y = ((arr + aba) / 2 - altoMenu / 2).toInt()
+        } else {
+            x = ((izq + der) / 2 - ancho / 2).toInt()
+            y = (if ((arr + aba) / 2 > ph / 2) arr - altoMenu - dp(20) else aba + dp(20)).toInt()
+        }
+        dialogo = Vidrio.dialogo(this, panel, aj, Gravity.TOP or Gravity.START,
+            x.coerceIn(dp(16), pw - ancho - dp(16)), y.coerceIn(dp(16), (ph - altoMenu - dp(16)).coerceAtLeast(dp(16))))
     }
 
     private fun entrarMover(f: Ficha) {
@@ -376,7 +466,7 @@ class MainActivity : Activity() {
         f.levantada = true
         fichas().forEach { if (it !== f) it.animate().alpha(.4f).setDuration(200).start() }
         aviso.removeCallbacks(ocultarAviso)
-        aviso.text = "Mantén ◀ o ▶ para llevarla · OK para soltar"
+        aviso.text = if (vertical) "Mantén ▲ o ▼ para llevarla · OK para soltar" else "Mantén ◀ o ▶ para llevarla · OK para soltar"
         aviso.visibility = View.VISIBLE
         f.requestFocus()
     }
@@ -404,13 +494,13 @@ class MainActivity : Activity() {
 
     private fun abrirFavoritos() {
         val favs = lista.favoritas()
-        val panel = Vidrio.panel(this, "★  Favoritos", 0)
+        val panel = Vidrio.panel(this, "Favoritos", 0, Icono.Tipo.ESTRELLA_LLENA)
         val rejilla = GridLayout(this).apply { columnCount = 3; clipChildren = false; clipToPadding = false }
-        val solape = -dp(16)
+        val solape = -dp(4)
         for (k in 0 until ListaApps.MAX_FAV) {
             val p = favs.getOrNull(k)
             if (p != null) {
-                val f = Ficha(this, p, 1, false, false, aj.animaciones)
+                val f = Ficha(this, p, 2, false, false, aj.animaciones)
                 f.setOnClickListener { dialogo?.dismiss(); abrir(p) }
                 f.setOnLongClickListener {
                     dialogo?.dismiss()
@@ -430,15 +520,15 @@ class MainActivity : Activity() {
                         cornerRadius = dp(12).toFloat()
                         setStroke(dp(1.5f), 0x40FFFFFF, dp(6).toFloat(), dp(4).toFloat())
                     }
-                }
+                }.conFuente()
                 rejilla.addView(hueco, GridLayout.LayoutParams().apply {
-                    width = dp(Ficha.ANCHOS[1]); height = dp(Ficha.ANCHOS[1] * 9 / 16)
-                    setMargins(dp(10), dp(10), dp(10), dp(10))
+                    width = dp(Ficha.ANCHOS[2]); height = dp(Ficha.ANCHOS[2] * 9 / 16)
+                    setMargins(dp(22), dp(22), dp(22), dp(22))
                 })
             }
         }
         panel.addView(rejilla)
-        if (favs.isEmpty()) panel.addView(nota("Mantén OK sobre una app del carrusel y elige «Añadir a favoritos»."))
+        if (favs.isEmpty()) panel.addView(nota("Mantén OK sobre una app del dock y elige «Añadir a favoritos»."))
         else panel.addView(nota("Mantén OK sobre una para quitarla."))
         dialogo = Vidrio.dialogo(this, panel, aj)
     }
@@ -447,21 +537,20 @@ class MainActivity : Activity() {
 
     private fun abrirAjustes(enfocar: Int = -1) {
         val sel = aj.colorSel
-        val col1 = Vidrio.panel(this, "⚙  Ajustes", dp(250))
-        val generales = Fila(this, "📺  Ajustes generales", sel).apply {
+        val col1 = Vidrio.panel(this, "Ajustes", dp(210), Icono.Tipo.AJUSTES)
+        val generales = Fila(this, "Generales", sel, Icono.Tipo.TV).apply {
             setOnClickListener {
                 try { startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 catch (e: Exception) { avisar("No disponible") }
             }
         }
-        val delLauncher = Fila(this, "▦  Ajustes del launcher", sel)
+        val delLauncher = Fila(this, "Del launcher", sel, Icono.Tipo.CUADRICULA)
         col1.addView(generales, filaLp())
         col1.addView(delLauncher, filaLp())
-        col1.addView(nota("«Generales» abre los ajustes de la TV: red, sonido, imagen…"))
 
-        val col2 = Vidrio.panel(this, "Ajustes del launcher", dp(440))
+        val col2 = Vidrio.panel(this, "Ajustes del launcher", dp(560))
         val filas = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        col2.addView(ScrollView(this).apply { isVerticalScrollBarEnabled = false; addView(filas) },
+        col2.addView(ScrollView(this).apply { isVerticalScrollBarEnabled = false; clipToPadding = false; addView(filas) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         delLauncher.setOnClickListener { filas.getChildAt(0)?.requestFocus() }
 
@@ -476,6 +565,19 @@ class MainActivity : Activity() {
         fun interruptor(t: String, valor: Boolean, cambiar: (Boolean) -> Unit) {
             val sw = Interruptor(this, valor)
             nueva(t, acc = sw) { sw.encendido = !sw.encendido; cambiar(sw.encendido) }
+        }
+        // Varias opciones a la vista: ◀ ▶ cambian sin salir de la fila; OK pasa a la siguiente.
+        fun opciones(t: String, ops: List<String>, actual: Int, cambiar: (Int) -> Unit) {
+            val s = Selector(this, ops, sel, actual.coerceIn(ops.indices))
+            val f = nueva(t, acc = s) { s.indice = (s.indice + 1) % ops.size; cambiar(s.indice) }
+            f.setOnKeyListener { _, code, ev ->
+                if (code != KeyEvent.KEYCODE_DPAD_LEFT && code != KeyEvent.KEYCODE_DPAD_RIGHT) return@setOnKeyListener false
+                if (ev.action == KeyEvent.ACTION_DOWN) {
+                    val n = (s.indice + if (code == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1).coerceIn(ops.indices)
+                    if (n != s.indice) { s.indice = n; cambiar(n) }
+                }
+                true
+            }
         }
 
         nueva("Fondo", "${nombreFondo(aj.fondo)} ›") { f -> elegirFondo { f.valor.text = "${nombreFondo(aj.fondo)} ›" } }
@@ -495,32 +597,36 @@ class MainActivity : Activity() {
             true
         }
 
+        val indiceFuente = filas.childCount
+        nueva("Tipografía", "${Fuentes.LISTA[aj.fuente].nombre} ›") { elegirFuente(indiceFuente) }
+        opciones("Dock", Ajustes.POSICIONES_CORTAS, aj.dock) { i -> aj.dock = i; montarDock(); pintarCarrusel(true) }
+        opciones("Tamaño", Ajustes.TAMANOS, aj.tamano) { i -> aj.tamano = i; pintarCarrusel(true) }
+        interruptor("Título del dock", aj.tituloDock) { aj.tituloDock = it; aplicar() }
         interruptor("Mostrar reloj", aj.reloj) { aj.reloj = it; aplicar() }
         interruptor("Mostrar tiempo", aj.tiempo) { aj.tiempo = it; aplicar(); if (it) pedirTiempo() }
         nueva("Ciudad del tiempo", "${aj.ciudad} ›") { f ->
             pedirCiudad { c -> aj.ciudad = c; f.valor.text = "$c ›"; textoTiempo = null; pedirTiempo() }
         }
         interruptor("Nombre bajo las apps", aj.nombres) { aj.nombres = it; pintarCarrusel(true) }
-        nueva("Tamaño de fichas", "${Ajustes.TAMANOS[aj.tamano]} ›") { f ->
-            aj.tamano = (aj.tamano + 1) % Ajustes.TAMANOS.size
-            f.valor.text = "${Ajustes.TAMANOS[aj.tamano]} ›"; pintarCarrusel(true)
+        interruptor("Ventana de TDT en directo", aj.tvVentana) {
+            aj.tvVentana = it
+            aplicar()
+            if (it) ventana.encender() else ventana.apagar()
         }
         nueva("Apps ocultas", "${lista.ocultas().size} ›") { f -> elegirOcultas { f.valor.text = "${lista.ocultas().size} ›" } }
-        nueva("Cambiar fondo solo", textoRotar()) { f ->
-            val l = Ajustes.MINUTOS_ROTAR
-            aj.rotarMin = l[(l.indexOf(aj.rotarMin) + 1) % l.size]
-            ultimaRotacion = SystemClock.uptimeMillis(); f.valor.text = textoRotar()
+        val minutos = { l: List<Int> -> l.map { if (it == 0) "No" else "$it min" } }
+        opciones("Cambiar fondo solo", minutos(Ajustes.MINUTOS_ROTAR), Ajustes.MINUTOS_ROTAR.indexOf(aj.rotarMin)) { i ->
+            aj.rotarMin = Ajustes.MINUTOS_ROTAR[i]; ultimaRotacion = SystemClock.uptimeMillis()
         }
-        nueva("Salvapantallas", textoSalva()) { f ->
-            val l = Ajustes.MINUTOS_SALVA
-            aj.salvaMin = l[(l.indexOf(aj.salvaMin) + 1) % l.size]
-            f.valor.text = textoSalva()
+        opciones("Salvapantallas", minutos(Ajustes.MINUTOS_SALVA), Ajustes.MINUTOS_SALVA.indexOf(aj.salvaMin)) { i ->
+            aj.salvaMin = Ajustes.MINUTOS_SALVA[i]
         }
-        nueva("Color de la selección", "${Ajustes.COLORES[aj.color].first} ›") {
-            aj.color = (aj.color + 1) % Ajustes.COLORES.size
+        val indiceColor = filas.childCount
+        opciones("Color", Ajustes.COLORES.map { it.first }, aj.color) { i ->
+            aj.color = i
             aplicar()
             dialogo?.dismiss()
-            abrirAjustes(enfocar = 10)     // se vuelve a abrir para pintarlo con el color nuevo
+            abrirAjustes(enfocar = indiceColor)     // se vuelve a abrir para pintarlo con el color nuevo
         }
         interruptor("Reflejo en el suelo", aj.reflejo) { aj.reflejo = it; pintarCarrusel(true) }
         interruptor("Cristal difuminado", aj.cristal) { aj.cristal = it }
@@ -529,14 +635,11 @@ class MainActivity : Activity() {
         filas.addView(nota("Inicio TV ${packageManager.getPackageInfo(packageName, 0).versionName}"))
 
         val dos = LinearLayout(this).apply { setPadding(dp(24), dp(24), dp(24), dp(24)) }
-        dos.addView(col1, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        dos.addView(col1, LinearLayout.LayoutParams(dp(210), ViewGroup.LayoutParams.MATCH_PARENT))
         dos.addView(col2, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT).apply { marginStart = dp(16) })
         dialogo = Vidrio.dialogo(this, dos, aj, Gravity.START or Gravity.TOP, 0, 0, ViewGroup.LayoutParams.MATCH_PARENT)
         if (enfocar >= 0) filas.getChildAt(enfocar)?.requestFocus() else delLauncher.requestFocus()
     }
-
-    private fun textoRotar() = if (aj.rotarMin == 0) "No ›" else "Cada ${aj.rotarMin} min ›"
-    private fun textoSalva() = if (aj.salvaMin == 0) "No ›" else "Tras ${aj.salvaMin} min ›"
 
     private fun nombreFondo(clave: String): String = when {
         clave.isEmpty() -> "Ninguno"
@@ -545,12 +648,15 @@ class MainActivity : Activity() {
     }
 
     /** Lista de cristal encima de lo que haya; al elegir se cierra solo esa lista. */
-    private fun elegir(tituloLista: String, opciones: List<String>, alElegir: (Int) -> Unit) {
+    private fun elegir(tituloLista: String, opciones: List<String>, fuentes: Boolean = false, alElegir: (Int) -> Unit) {
         val panel = Vidrio.panel(this, tituloLista, dp(380))
         val cont = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         var dl: Dialog? = null
         opciones.forEachIndexed { i, t ->
-            cont.addView(Fila(this, t, aj.colorSel).apply { setOnClickListener { dl?.dismiss(); alElegir(i) } }, filaLp())
+            cont.addView(Fila(this, t, aj.colorSel).apply {
+                if (fuentes) texto.typeface = Fuentes.normal(this@MainActivity, i)   // cada fuente se ve con su letra
+                setOnClickListener { dl?.dismiss(); alElegir(i) }
+            }, filaLp())
         }
         panel.addView(ScrollView(this).apply { isVerticalScrollBarEnabled = false; addView(cont) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -558,11 +664,23 @@ class MainActivity : Activity() {
             alto = if (opciones.size > 8) resources.displayMetrics.heightPixels - dp(80) else ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
+    private fun elegirFuente(volverA: Int) {
+        elegir("Tipografía", Fuentes.LISTA.map { it.nombre }, fuentes = true) { i ->
+            if (i == aj.fuente) return@elegir
+            aj.fuente = i
+            Fuentes.actual = i
+            // Toda la pantalla usa la fuente: se rehace y se vuelve a Ajustes en la misma fila.
+            reabrirAjustes = volverA
+            dialogo?.dismiss()
+            recreate()
+        }
+    }
+
     private fun elegirFondo(listo: () -> Unit) {
         val fondos = CatalogoFondos.todos(this)
         val ops = mutableListOf("Sin fondo (negro)")
         ops += fondos.map { "${it.tipo.etiqueta} · ${it.nombre}" }
-        if (!Environment.isExternalStorageManager()) ops += "⚠ Sin permiso para leer /sdcard/Fondos (ver README)"
+        if (!Environment.isExternalStorageManager()) ops += "Sin permiso para leer /sdcard/Fondos (ver README)"
         elegir("Fondo", ops) { i ->
             val clave = when {
                 i == 0 -> ""
@@ -606,10 +724,7 @@ class MainActivity : Activity() {
                     if (!f.isFile) return@elegir avisar("No hay copia guardada")
                     aj.recuperarCopia(f)
                     dialogo?.dismiss()
-                    aplicar()
-                    fondo.mostrar(aj.fondo)
-                    pintarCarrusel(true)
-                    avisar("Copia recuperada")
+                    recreate()
                 }
             } catch (e: Exception) {
                 avisar("Sin permiso para escribir en /sdcard (ver README)")
@@ -622,10 +737,13 @@ class MainActivity : Activity() {
     private fun pedirTiempo() {
         if (!aj.tiempo) return
         ultimoTiempo = SystemClock.uptimeMillis()
-        Tiempo.pedir(aj.ciudad, aj.p) { t ->
-            if (t != null) textoTiempo = t
+        Tiempo.pedir(aj.ciudad, aj.p) { t, codigo ->
+            if (t != null) { textoTiempo = t; codigoTiempo = codigo }
             tiempo.text = textoTiempo
             salvaTiempo.text = textoTiempo ?: ""
+            val tipo = Icono.clima(codigoTiempo)
+            tiempo.setCompoundDrawablesRelative(icono(tipo, 0xFFFFD27A.toInt(), 16), null, null, null)
+            salvaTiempo.setCompoundDrawablesRelative(icono(tipo, 0xFFFFD27A.toInt(), 22), null, null, null)
             tiempo.visibility = if (aj.tiempo && textoTiempo != null) View.VISIBLE else View.GONE
         }
     }
@@ -672,9 +790,14 @@ class MainActivity : Activity() {
         setTextColor(0xA6FFFFFF.toInt())
         setPadding(dp(12), dp(12), dp(12), 0)
         setLineSpacing(0f, 1.25f)
-    }
+    }.conFuente()
 
     private fun filaLp() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
 
     private fun lleno() = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+
+    companion object {
+        /** Fila de Ajustes a la que volver tras rehacer la pantalla (cambio de fuente); -1 = ninguna. */
+        private var reabrirAjustes = -1
+    }
 }

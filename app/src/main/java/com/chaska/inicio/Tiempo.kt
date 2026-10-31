@@ -13,8 +13,10 @@ import kotlin.math.roundToInt
 object Tiempo {
     private val principal = Handler(Looper.getMainLooper())
 
-    fun pedir(ciudad: String, p: SharedPreferences, alListo: (String?) -> Unit) {
+    /** Devuelve "22° · Madrid" y el código WMO (para el icono), o null si no hay red o ciudad. */
+    fun pedir(ciudad: String, p: SharedPreferences, alListo: (String?, Int) -> Unit) {
         Thread {
+            var codigo = 3
             val texto = try {
                 if (p.getString("geo_ciudad", null) != ciudad) {
                     val q = URLEncoder.encode(ciudad, "UTF-8")
@@ -32,12 +34,12 @@ object Tiempo {
                 val lon = p.getFloat("geo_lon", 0f)
                 val c = json("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code&timezone=auto")
                     .getJSONObject("current")
-                val t = c.getDouble("temperature_2m").roundToInt()
-                "${icono(c.getInt("weather_code"))}  $t° · ${p.getString("geo_nombre", ciudad)}"
+                codigo = c.getInt("weather_code")
+                "${c.getDouble("temperature_2m").roundToInt()}° · ${p.getString("geo_nombre", ciudad)}"
             } catch (e: Exception) {
                 null
             }
-            principal.post { alListo(texto) }
+            principal.post { alListo(texto, codigo) }
         }.start()
     }
 
@@ -50,17 +52,5 @@ object Tiempo {
         } finally {
             con.disconnect()
         }
-    }
-
-    /** Códigos WMO de Open-Meteo. */
-    private fun icono(codigo: Int) = when (codigo) {
-        0 -> "☀"
-        1, 2 -> "🌤"
-        3 -> "☁"
-        45, 48 -> "🌫"
-        in 51..67, in 80..82 -> "🌧"
-        in 71..77, 85, 86 -> "❄"
-        in 95..99 -> "⛈"
-        else -> "☁"
     }
 }

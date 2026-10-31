@@ -17,7 +17,12 @@ class Ajustes(ctx: Context) {
     var tiempo by booleano("tiempo", true)
     var ciudad by texto("ciudad", "Madrid")
     var nombres by booleano("nombres", false)
-    var tamano by entero("tamano", 1)          // 0 pequeño, 1 mediano, 2 grande
+    // 0 micro, 1 pequeño, 2 mediano, 3 grande (la 0.2 guardaba "tamano" sin micro: se corre uno)
+    var tamano by entero("tam", if (p.contains("tamano")) p.getInt("tamano", 1) + 1 else 2)
+    var fuente by entero("fuente", 1)
+    var dock by entero("dock", 0)               // índice de POSICIONES
+    var tvVentana by booleano("tv_ventana", false)
+    var tituloDock by booleano("titulo_dock", true)
     var rotarMin by entero("rotar_min", 0)      // 0 = no cambiar el fondo solo
     var salvaMin by entero("salva_min", 10)     // 0 = sin salvapantallas
     var color by entero("color", 0)
@@ -80,7 +85,10 @@ class Ajustes(ctx: Context) {
             "Azul" to 0xFF4FA3F7.toInt(),
             "Verde" to 0xFF3CCB8F.toInt(),
         )
-        val TAMANOS = listOf("Pequeño", "Mediano", "Grande")
+        val TAMANOS = listOf("Micro", "Pequeño", "Mediano", "Grande")
+        val POSICIONES = listOf("Abajo", "Centro", "Arriba", "Izquierda", "Centro vertical", "Derecha")
+        val POSICIONES_CORTAS = listOf("Abajo", "Centro", "Arriba", "Izq.", "Centro V", "Der.")
+        fun esVertical(dock: Int) = dock >= 3
         val MINUTOS_ROTAR = listOf(0, 15, 30, 60)
         val MINUTOS_SALVA = listOf(0, 5, 10, 30)
     }

@@ -9,7 +9,6 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
-import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
@@ -36,7 +35,7 @@ object Vidrio {
             setStroke(ctx.dp(1), 0x33FFFFFF)
         }
 
-    fun panel(ctx: Context, titulo: String?, ancho: Int): LinearLayout = LinearLayout(ctx).apply {
+    fun panel(ctx: Context, titulo: String?, ancho: Int, icono: Icono.Tipo? = null): LinearLayout = LinearLayout(ctx).apply {
         orientation = LinearLayout.VERTICAL
         background = fondo(ctx)
         elevation = ctx.dp(24).toFloat()
@@ -46,9 +45,12 @@ object Vidrio {
             text = titulo
             textSize = 19f
             setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             setPadding(ctx.dp(8), 0, 0, ctx.dp(10))
-        })
+            if (icono != null) {
+                setCompoundDrawablesRelative(Icono(icono, Color.WHITE, ctx.dp(20)).apply { setBounds(0, 0, ctx.dp(20), ctx.dp(20)) }, null, null, null)
+                compoundDrawablePadding = ctx.dp(10)
+            }
+        }.conFuente(medio = true))
     }
 
     /** Ventana sin marco con el panel dentro; detrás, la pantalla oscurecida y (si se puede) difuminada. */
@@ -78,13 +80,14 @@ object Vidrio {
     }
 }
 
-/** Fila de menú o de ajustes: texto a la izquierda, valor o interruptor a la derecha; brilla con el foco. */
-class Fila(ctx: Context, titulo: String, sel: Int) : LinearLayout(ctx) {
+/** Fila de menú o de ajustes: icono y texto a la izquierda, valor o interruptor a la derecha; brilla con el foco. */
+class Fila(ctx: Context, titulo: String, sel: Int, icono: Icono.Tipo? = null) : LinearLayout(ctx) {
     val valor = TextView(ctx).apply {
         textSize = 14f
         setTextColor(0xBFFFFFFF.toInt())
         setPadding(ctx.dp(12), 0, 0, 0)
-    }
+    }.conFuente()
+    val texto: TextView = crearTexto(ctx, titulo, icono)
     var accesorio: View? = null
         set(v) {
             field?.let { removeView(it) }
@@ -107,13 +110,48 @@ class Fila(ctx: Context, titulo: String, sel: Int) : LinearLayout(ctx) {
                 })
             addState(intArrayOf(), ColorDrawable(Color.TRANSPARENT))
         }
-        addView(TextView(ctx).apply {
-            text = titulo
-            textSize = 15f
-            setTextColor(Color.WHITE)
-        }, LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(texto, LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         addView(valor)
-        setOnFocusChangeListener { v, f -> v.animate().translationX(if (f) ctx.dp(4).toFloat() else 0f).setDuration(160).start() }
+    }
+
+    private fun crearTexto(ctx: Context, titulo: String, icono: Icono.Tipo?) = TextView(ctx).apply {
+        text = titulo
+        textSize = 15f
+        setTextColor(Color.WHITE)
+        if (icono != null) {
+            setCompoundDrawablesRelative(Icono(icono, 0xE6FFFFFF.toInt(), ctx.dp(18)).apply { setBounds(0, 0, ctx.dp(18), ctx.dp(18)) }, null, null, null)
+            compoundDrawablePadding = ctx.dp(10)
+        }
+    }.conFuente()
+}
+
+/** Opciones a la vista, como en un iPhone: «Micro [Pequeño] Mediano Grande». La elegida va en una cápsula. */
+class Selector(ctx: Context, opciones: List<String>, private val sel: Int, indice: Int) : LinearLayout(ctx) {
+    private val etiquetas = opciones.map { t ->
+        TextView(ctx).apply {
+            text = t
+            textSize = 13f
+            setPadding(ctx.dp(9), ctx.dp(3), ctx.dp(9), ctx.dp(3))
+        }.conFuente()
+    }
+    var indice = indice
+        set(v) { field = v; pintar() }
+
+    init {
+        gravity = Gravity.CENTER_VERTICAL
+        etiquetas.forEach { addView(it) }
+        pintar()
+    }
+
+    private fun pintar() = etiquetas.forEachIndexed { i, t ->
+        val elegida = i == indice
+        t.setTextColor(if (elegida) Color.WHITE else 0x80FFFFFF.toInt())
+        t.background = if (elegida) GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(conAlfa(sel, 0xCC), conAlfa(sel, 0x80))).apply {
+            cornerRadius = context.dp(12).toFloat()
+            setStroke(context.dp(1), 0x40FFFFFF)
+        } else null
+        t.typeface = if (elegida) Fuentes.medio(context) else Fuentes.normal(context)
     }
 }
 

@@ -6,6 +6,8 @@ Sin anuncios, sin librerías: el APK de release pesa unos 60 KB.
 - Carrusel con **Favoritos** primero (cuadrícula 3×2, máximo 6) y luego todas las apps.
 - **OK mantenido** sobre una app: añadir/quitar de favoritos, **mover** (la ficha se levanta y viaja con ◀ ▶; OK la suelta), ocultar e información.
 - Fichas en 3D: brillo de cristal, sombra, halo del color de la app, luz que gira por el borde, destello y reflejo en el suelo. Un foco de luz del color de la app activa la sigue por la pantalla.
+- Ajustes al estilo iPhone: interruptores y opciones a la vista que se cambian con ◀ ▶. Dock en 6 posiciones, 4 tamaños (micro a grande) y 10 tipografías (Google Fonts, licencia OFL en `assets/fuentes/licencias`).
+- Ventanita opcional con la TDT en directo (sin sonido).
 - Reloj, fecha y **tiempo** (Open-Meteo, gratis y sin clave; la ciudad se pone en ajustes).
 - **Ajustes** → Ajustes generales (los de la TV) y Ajustes del launcher: fondo, brillo, reloj, tiempo, ciudad, nombres, tamaño, apps ocultas, cambiar fondo solo, salvapantallas, color de la selección, reflejo, cristal difuminado, animaciones y copia de ajustes (`/sdcard/InicioTV/copia.json`).
 - Fondos: **imagen** (jpg, png, webp…), **GIF animado**, **vídeo** (mp4, mkv, webm; en bucle y sin sonido) y **HTML5** (canvas/WebGL: partículas, humo…).
