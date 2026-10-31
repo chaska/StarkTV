@@ -55,7 +55,8 @@ class Ficha(
     private val banner: Drawable? = if (esPap) null else paquete?.let { Apps.banner(ctx, it) }
     private val icono: Drawable? = if (banner == null && !esPap) paquete?.let { Apps.icono(ctx, it) } else null
     val color: Int = when { esFav -> 0xFFE0A949.toInt(); esPap -> 0xFF3A6FD8.toInt(); else -> colorMedio(banner ?: icono) }
-    private val iconoPap = Icono(Icono.Tipo.PAP, Color.WHITE, 0)
+    private val iconoPap: Drawable = ctx.getDrawable(
+        if (com.chaska.inicio.pap.Pap.esPip(Ajustes(ctx).papReparto)) R.drawable.ic_pip else R.drawable.ic_pap)!!.mutate()
 
     var esFavorita = false
         set(v) { field = v; invalidate() }
@@ -232,10 +233,11 @@ class Ficha(
                 banner.draw(c)
             }
             esPap -> {
-                val l = (alto * .34f).toInt()
-                val x = (r.centerX() - l / 2).toInt()
-                val y = (r.centerY() - alto * .32f).toInt()
-                iconoPap.setBounds(x, y, x + l, y + l)
+                val l = (alto * .5f).toInt()
+                val an = l * 5 / 4
+                val x = (r.centerX() - an / 2).toInt()
+                val y = (r.centerY() - alto * .38f).toInt()
+                iconoPap.setBounds(x, y, x + an, y + l)
                 iconoPap.draw(c)
                 c.drawText("PAP", r.centerX(), r.centerY() + alto * .28f, pTexto.apply { textSize = alto * .15f })
             }

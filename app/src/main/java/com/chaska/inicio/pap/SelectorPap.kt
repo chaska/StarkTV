@@ -36,6 +36,8 @@ class SelectorPap : Activity() {
         elegida[1] = ops.indexOfFirst { it.first == aj.papDer }.coerceAtLeast(0)
         val (r1, r2) = Pap.limites(this, aj.papReparto)
         lienzo = Lienzo(this, r1, r2, aj.colorSel, aj.papReparto == 3)
+        lienzo.dibujos = listOf(R.drawable.ic_sonido, R.drawable.ic_cerrar, R.drawable.ic_modos).map { getDrawable(it)!!.mutate() }
+        lienzo.apagado = aj.papSonido == 3
         lienzo.marca = Marca(Marca.PARTE, aj.papParte.coerceIn(1, 2))
         pintarNombres()
         lienzo.sonido = Pap.sonidos(aj.papReparto)[aj.papSonido.coerceIn(0, 3)]
@@ -158,6 +160,7 @@ class SelectorPap : Activity() {
                         // Izquierda → derecha → las dos → apagado.
                         aj.papSonido = (aj.papSonido.coerceIn(0, 3) + 1) % 4
                         lienzo.sonido = Pap.sonidos(aj.papReparto)[aj.papSonido]
+                        lienzo.apagado = aj.papSonido == 3
                         lienzo.invalidate()
                         Pap.aplicarSonido(this, aj)
                     }
@@ -229,6 +232,9 @@ class SelectorPap : Activity() {
             set(v) { field = v; invalidate() }
         var nombres: List<String> = listOf("", "")
         var sonido = ""
+        /** Altavoz, X y modos (de la lámina de iconos). */
+        var dibujos: List<android.graphics.drawable.Drawable> = emptyList()
+        var apagado = false
         var modo = ""
         /** Lista de MODO abierta: índice marcado; -1 cerrada. */
         var lista = -1
@@ -260,45 +266,17 @@ class SelectorPap : Activity() {
                 c.drawRoundRect(r, radio, radio, pMarco)
                 pastilla(c, r, parte)
             }
-            // Círculo con la X: abajo, entre las dos partes.
+            // Abajo, entre las dos partes: altavoz · X · modos, con los iconos de la lámina.
             val cx = width / 2f
             val cy = height - 74 * d
-            val rc = 26 * d
-            val enX = marca.tipo == Marca.CERRAR
-            if (enX) { pHalo.color = conAlfa(sel, 0xC0); c.drawCircle(cx, cy, rc, pHalo) }
-            pRelleno.color = if (enX) sel else 0xCC1A1D26.toInt()
-            c.drawCircle(cx, cy, rc, pRelleno)
-            pX.color = if (enX) Color.BLACK else sel
-            val x = rc * .38f
-            c.drawLine(cx - x, cy - x, cx + x, cy + x, pX)
-            c.drawLine(cx + x, cy - x, cx - x, cy + x, pX)
-            // Altavoz, a la izquierda de la X: qué parte suena.
-            val ax = cx - 74 * d
-            val enA = marca.tipo == Marca.ALTAVOZ
-            if (enA) { pHalo.color = conAlfa(sel, 0xC0); c.drawCircle(ax, cy, rc, pHalo) }
-            pRelleno.color = if (enA) sel else 0xCC1A1D26.toInt()
-            c.drawCircle(ax, cy, rc, pRelleno)
-            pX.color = if (enA) Color.BLACK else sel
-            val k = rc * .3f
-            val cuerpo = android.graphics.Path().apply {
-                moveTo(ax - k * 1.3f, cy - k * .5f); lineTo(ax - k * .5f, cy - k * .5f); lineTo(ax + k * .4f, cy - k * 1.2f)
-                lineTo(ax + k * .4f, cy + k * 1.2f); lineTo(ax - k * .5f, cy + k * .5f); lineTo(ax - k * 1.3f, cy + k * .5f); close()
-            }
-            c.drawPath(cuerpo, pX)
-            c.drawArc(RectF(ax - k * .2f, cy - k * .9f, ax + k * 1.4f, cy + k * .9f), -50f, 100f, false, pX)
+            val rc = 28 * d
+            val ax = cx - 78 * d
+            val mx = cx + 78 * d
+            circulo(c, ax, cy, rc, 0, marca.tipo == Marca.ALTAVOZ, apagado)
+            circulo(c, cx, cy, rc, 1, marca.tipo == Marca.CERRAR, false)
+            circulo(c, mx, cy, rc, 2, marca.tipo == Marca.MODO, false)
             pFuente.color = Color.WHITE
             c.drawText(sonido, ax, cy - rc - 8 * d, pFuente)
-            // MODO, a la derecha de la X: reparto, PIP e intercambiar.
-            val mx = cx + 74 * d
-            val enM = marca.tipo == Marca.MODO
-            if (enM) { pHalo.color = conAlfa(sel, 0xC0); c.drawCircle(mx, cy, rc, pHalo) }
-            pRelleno.color = if (enM) sel else 0xCC1A1D26.toInt()
-            c.drawCircle(mx, cy, rc, pRelleno)
-            pX.color = if (enM) Color.BLACK else sel
-            val q = rc * .45f
-            c.drawRoundRect(RectF(mx - q, cy - q * .7f, mx + q, cy + q * .7f), 3 * d, 3 * d, pX)
-            c.drawLine(mx, cy - q * .7f, mx, cy + q * .7f, pX)
-            pFuente.color = Color.WHITE
             c.drawText("Modo", mx, cy - rc - 8 * d, pFuente)
             if (lista >= 0) dibujarLista(c, mx, cy - rc - 30 * d)
             // Leyenda.
@@ -308,6 +286,23 @@ class SelectorPap : Activity() {
             val w = pTexto.measureText(texto) / 2 + 16 * d
             c.drawRoundRect(cx - w, ty - 22 * d, cx + w, ty + 10 * d, 14 * d, 14 * d, pFondoTexto)
             c.drawText(texto, cx, ty, pTexto)
+        }
+
+        /** Un círculo de abajo: halo del color de la selección si está marcado, y su icono dentro. */
+        private fun circulo(c: Canvas, x: Float, y: Float, rc: Float, i: Int, marcado: Boolean, tenue: Boolean) {
+            if (marcado) {
+                pHalo.color = conAlfa(sel, 0xD0); c.drawCircle(x, y, rc + 4 * d, pHalo)
+                pMarco.color = sel; pMarco.strokeWidth = 3 * d; c.drawCircle(x, y, rc + 3 * d, pMarco)
+            }
+            pRelleno.color = 0xE60E1118.toInt()
+            c.drawCircle(x, y, rc, pRelleno)
+            val dib = dibujos.getOrNull(i) ?: return
+            val lado = (rc * if (i == 1) 2.0f else 1.5f).toInt()
+            val an = lado * dib.intrinsicWidth / dib.intrinsicHeight.coerceAtLeast(1)
+            dib.setBounds((x - an / 2).toInt(), (y - lado / 2).toInt(), (x + an / 2).toInt(), (y + lado / 2).toInt())
+            dib.alpha = if (tenue) 90 else 255
+            dib.draw(c)
+            if (tenue) { pX.color = 0xFFE5484D.toInt(); c.drawLine(x - rc * .6f, y + rc * .6f, x + rc * .6f, y - rc * .6f, pX) }
         }
 
         /** Lista de MODO encima del círculo: los repartos y «Intercambiar lados». */

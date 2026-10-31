@@ -35,7 +35,7 @@ object Vidrio {
             setStroke(ctx.dp(1), 0x33FFFFFF)
         }
 
-    fun panel(ctx: Context, titulo: String?, ancho: Int, icono: Icono.Tipo? = null): LinearLayout = LinearLayout(ctx).apply {
+    fun panel(ctx: Context, titulo: String?, ancho: Int, icono: Icono.Tipo? = null, dibujo: Drawable? = null): LinearLayout = LinearLayout(ctx).apply {
         orientation = LinearLayout.VERTICAL
         background = fondo(ctx)
         elevation = ctx.dp(24).toFloat()
@@ -46,10 +46,9 @@ object Vidrio {
             textSize = 19f
             setTextColor(Color.WHITE)
             setPadding(ctx.dp(8), 0, 0, ctx.dp(10))
-            if (icono != null) {
-                setCompoundDrawablesRelative(Icono(icono, Color.WHITE, ctx.dp(20)).apply { setBounds(0, 0, ctx.dp(20), ctx.dp(20)) }, null, null, null)
-                compoundDrawablePadding = ctx.dp(10)
-            }
+            val d = dibujo?.mutate()?.apply { setBounds(0, 0, ctx.dp(28), ctx.dp(28)) }
+                ?: icono?.let { Icono(it, Color.WHITE, ctx.dp(20)).apply { setBounds(0, 0, ctx.dp(20), ctx.dp(20)) } }
+            if (d != null) { setCompoundDrawablesRelative(d, null, null, null); compoundDrawablePadding = ctx.dp(10) }
         }.conFuente(medio = true))
     }
 
@@ -81,13 +80,13 @@ object Vidrio {
 }
 
 /** Fila de menú o de ajustes: icono y texto a la izquierda, valor o interruptor a la derecha; brilla con el foco. */
-class Fila(ctx: Context, titulo: String, sel: Int, icono: Icono.Tipo? = null) : LinearLayout(ctx) {
+class Fila(ctx: Context, titulo: String, sel: Int, icono: Icono.Tipo? = null, dibujo: Drawable? = null) : LinearLayout(ctx) {
     val valor = TextView(ctx).apply {
         textSize = 14f
         setTextColor(0xBFFFFFFF.toInt())
         setPadding(ctx.dp(12), 0, 0, 0)
     }.conFuente()
-    val texto: TextView = crearTexto(ctx, titulo, icono)
+    val texto: TextView = crearTexto(ctx, titulo, icono, dibujo)
     var accesorio: View? = null
         set(v) {
             field?.let { removeView(it) }
@@ -114,14 +113,13 @@ class Fila(ctx: Context, titulo: String, sel: Int, icono: Icono.Tipo? = null) : 
         addView(valor)
     }
 
-    private fun crearTexto(ctx: Context, titulo: String, icono: Icono.Tipo?) = TextView(ctx).apply {
+    private fun crearTexto(ctx: Context, titulo: String, icono: Icono.Tipo?, dibujo: Drawable?) = TextView(ctx).apply {
         text = titulo
         textSize = 15f
         setTextColor(Color.WHITE)
-        if (icono != null) {
-            setCompoundDrawablesRelative(Icono(icono, 0xE6FFFFFF.toInt(), ctx.dp(18)).apply { setBounds(0, 0, ctx.dp(18), ctx.dp(18)) }, null, null, null)
-            compoundDrawablePadding = ctx.dp(10)
-        }
+        val d = dibujo?.mutate()?.apply { setBounds(0, 0, ctx.dp(30), ctx.dp(30)) }
+            ?: icono?.let { Icono(it, 0xE6FFFFFF.toInt(), ctx.dp(18)).apply { setBounds(0, 0, ctx.dp(18), ctx.dp(18)) } }
+        if (d != null) { setCompoundDrawablesRelative(d, null, null, null); compoundDrawablePadding = ctx.dp(12) }
     }.conFuente()
 }
 

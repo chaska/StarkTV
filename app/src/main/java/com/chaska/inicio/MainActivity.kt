@@ -191,10 +191,10 @@ class MainActivity : Activity() {
     // ---------- Construcción ----------
 
     private fun construirInicio() {
-        botonAjustes = botonIcono(Icono.Tipo.AJUSTES, "Ajustes") { abrirAjustes() }
+        botonAjustes = botonIcono(getDrawable(R.drawable.ic_ajustes)!!, "Ajustes") { abrirAjustes() }
         contenido.addView(botonAjustes)
         // PAP de un toque: si está parado lo empieza; si está en marcha, abre su panel.
-        botonPap = botonIcono(Icono.Tipo.PAP, "PAP") { Pap.empezar(this) }
+        botonPap = botonIcono(getDrawable(R.drawable.ic_pap)!!, "PAP") { Pap.empezar(this) }
         contenido.addView(botonPap)
 
         bloqueReloj = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -411,8 +411,9 @@ class MainActivity : Activity() {
         botonAjustes.background = fondoBoton()
         botonPap.background = fondoBoton()
         botonPap.visibility = if (aj.papBoton) View.VISIBLE else View.GONE
-        // Con el PAP en marcha, el icono se enciende del color de la selección.
-        botonPap.setCompoundDrawablesRelative(icono(Icono.Tipo.PAP, if (Pap.activo(aj)) aj.colorSel else Color.WHITE, 22), null, null, null)
+        // PAP o PIP según el modo; con el PAP en marcha, el botón brilla del color de la selección.
+        botonPap.setCompoundDrawablesRelative(dibujoPap().apply { setBounds(0, 0, dp(34), dp(34)) }, null, null, null)
+        botonPap.outlineSpotShadowColor = if (Pap.activo(aj)) aj.colorSel else Color.BLACK
         ventana.visibility = if (aj.tvVentana) View.VISIBLE else View.GONE
         titulo.visibility = if (aj.tituloDock) View.VISIBLE else View.GONE
     }
@@ -613,16 +614,16 @@ class MainActivity : Activity() {
     /** Primera pantalla: Generales (los de la TV) o Launcher. */
     private fun abrirAjustes() {
         val sel = aj.colorSel
-        val panel = Vidrio.panel(this, "Ajustes", dp(300), Icono.Tipo.AJUSTES)
+        val panel = Vidrio.panel(this, "Ajustes", dp(300), dibujo = getDrawable(R.drawable.ic_ajustes))
         val grupo = grupo()
-        val generales = Fila(this, "Generales", sel, Icono.Tipo.TV).apply {
+        val generales = Fila(this, "Generales", sel, dibujo = getDrawable(R.drawable.ic_ajustes_tv)).apply {
             valor.text = "›"
             setOnClickListener {
                 try { startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 catch (e: Exception) { avisar("No disponible") }
             }
         }
-        val launcher = Fila(this, "Launcher", sel, Icono.Tipo.CUADRICULA).apply {
+        val launcher = Fila(this, "Launcher", sel, dibujo = getDrawable(R.mipmap.ic_launcher)).apply {
             valor.text = "›"
             setOnClickListener { dialogo?.dismiss(); abrirLauncher() }
         }
@@ -852,11 +853,13 @@ class MainActivity : Activity() {
         catch (e: Exception) { avisar("Esta TV no deja elegir el inicio") }
     }
 
+    private fun dibujoPap() = getDrawable(if (Pap.esPip(aj.papReparto)) R.drawable.ic_pip else R.drawable.ic_pap)!!.mutate()
+
     /** Botón redondo de la cabecera (tuerca, PAP): solo icono, se agranda y brilla con el foco. */
-    private fun botonIcono(tipo: Icono.Tipo, nombre: String, alPulsar: () -> Unit) = TextView(this).apply {
+    private fun botonIcono(dibujo: android.graphics.drawable.Drawable, nombre: String, alPulsar: () -> Unit) = TextView(this).apply {
         contentDescription = nombre
-        setPadding(dp(10), dp(10), dp(10), dp(10))
-        setCompoundDrawablesRelative(icono(tipo, Color.WHITE, 22), null, null, null)
+        setPadding(dp(6), dp(6), dp(6), dp(6))
+        setCompoundDrawablesRelative(dibujo.mutate().apply { setBounds(0, 0, dp(34), dp(34)) }, null, null, null)
         isFocusable = true
         elevation = dp(6).toFloat()
         setOnClickListener { alPulsar() }
