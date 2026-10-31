@@ -11,8 +11,8 @@ android {
         applicationId = "com.chaska.inicio"
         minSdk = 30
         targetSdk = 34
-        versionCode = 53
-        versionName = "0.9.28"
+        versionCode = 54
+        versionName = "0.9.29"
     }
 
     buildTypes {
@@ -30,6 +30,14 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+    }
+}
+
+// El APK de release sale como StarkTV-<versión>.apk (también con «Generate Signed APK»).
+android.applicationVariants.all {
+    val variante = this
+    if (variante.buildType.name == "release") variante.outputs.all {
+        (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "StarkTV-${variante.versionName}.apk"
     }
 }
 
