@@ -61,11 +61,7 @@ object Pap {
             act.startActivity(Intent(act, FondoPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), opciones(null, MODO_PANTALLA_COMPLETA))
         } catch (e: Exception) { Log.w(TAG, "PAP: sin fondo: $e") }
         val orden = if (manejar == 1) listOf(1, 0) else listOf(0, 1)
-        // Qué ventana buscar para cada parte: la tarea de nuestro visor o la de la app (su afinidad empieza por el paquete).
-        val objetivos = partes.map { (clave, rect, visor) ->
-            (if (clave.startsWith(TV)) (if (visor == VisorIzq::class.java) "com.chaska.inicio.pap1" else "com.chaska.inicio.pap2") to true
-             else clave to false) to Rect(rect)
-        }
+        val objetivos = listOf(busqueda(aj.papIzq, 1) to Rect(r1), busqueda(aj.papDer, 2) to Rect(r2))
         aj.papActivo = true
         aj.papParte = manejar
         for (i in orden) {
@@ -77,7 +73,7 @@ object Pap {
             try { act.startActivity(intent, opciones(rect, MODO_VENTANA)) }
             catch (e: Exception) { Log.w(TAG, "PAP: no se pudo abrir $clave: $e") }
         }
-        colocar(act.applicationContext, aj, objetivos)
+        colocar(act.applicationContext, aj, objetivos, manejar)
     }
 
     @Volatile private var tanda = 0
@@ -87,11 +83,12 @@ object Pap {
      * y Android las pone donde quiere. Durante 30 s, cada segundo, se mira por adb dónde está cada parte
      * y se mueve a su sitio; si el selector está abierto, se vuelve a poner encima.
      */
-    private fun colocar(ctx: Context, aj: Ajustes, objetivos: List<Pair<Pair<String, Boolean>, Rect>>) {
+    private fun colocar(ctx: Context, aj: Ajustes, objetivos: List<Pair<Pair<String, Boolean>, Rect>>, manejar: Int) {
         val mia = ++tanda
         val principal = android.os.Handler(android.os.Looper.getMainLooper())
         Thread {
             val fin = android.os.SystemClock.uptimeMillis() + 30_000
+            var activaDelante = false
             while (android.os.SystemClock.uptimeMillis() < fin && mia == tanda && aj.papActivo) {
                 val lista = Adb.tareas(ctx) ?: break             // sin adb no se puede: se deja como está
                 var movida = false
@@ -102,6 +99,13 @@ object Pap {
                             if (t.limites != rect) { Adb.mover(ctx, t.id, rect); movida = true; Log.i(TAG, "PAP: ${t.afinidad} a $rect") }
                         }
                 }
+                // Cuando ya están las dos, la parte que se maneja se pone delante una vez (por si una app con
+                // trampolín, como YouTube, se coló por encima y se quedó con el mando).
+                val todas = objetivos.all { (b, _) -> buscar(lista, b) != null }
+                if (todas && !activaDelante) {
+                    activaDelante = true
+                    buscar(lista, objetivos[manejar - 1].first)?.let { t -> principal.post { alFrente(ctx, t.id) } }
+                }
                 if (movida && SelectorPap.visible) principal.post {
                     ctx.startActivity(Intent(ctx, SelectorPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), pantallaCompleta())
                 }
@@ -109,6 +113,19 @@ object Pap {
             }
         }.start()
     }
+
+    /** Qué tarea buscar para una parte: nuestro visor (afinidad exacta) o la app (afinidad que empieza por el paquete). */
+    fun busqueda(clave: String, parte: Int): Pair<String, Boolean> =
+        if (clave.startsWith(TV)) (if (parte == 1) "com.chaska.inicio.pap1" else "com.chaska.inicio.pap2") to true
+        else clave to false
+
+    /** La tarea visible de más arriba que corresponde a esa búsqueda. */
+    fun buscar(lista: List<Adb.Tarea>, b: Pair<String, Boolean>): Adb.Tarea? =
+        lista.firstOrNull { it.visible && it.modo == "freeform" && (if (b.second) it.afinidad == b.first else it.afinidad.startsWith(b.first)) }
+
+    fun alFrente(ctx: Context, id: Int) = try {
+        (ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).moveTaskToFront(id, 0)
+    } catch (e: Exception) { Log.w(TAG, "PAP: no se pudo poner delante $id: $e") }
 
     /** Cierra los visores de TV; las apps se quedan en segundo plano y vuelven a pantalla completa al abrirlas. */
     fun salir(aj: Ajustes) {

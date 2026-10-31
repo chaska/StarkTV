@@ -6,6 +6,8 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Poner delante la ventana de la parte elegida del PAP (permiso normal). -->
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
     <!-- Para volver a encender el servicio de la tuerca tras cada actualización (Android lo apaga).
          Se concede una vez por adb: pm grant com.chaska.inicio android.permission.WRITE_SECURE_SETTINGS -->
     <uses-permission

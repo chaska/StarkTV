@@ -119,10 +119,25 @@ class SelectorPap : Activity() {
         volver(parte, cambio = clave != antes)
     }
 
+    /**
+     * Deja manejando [parte]. Si solo se cambia de parte, no se vuelve a abrir nada: se pone delante
+     * la ventana de esa parte (la busca por adb) y el mando va con ella. Si cambió su fuente, se abre.
+     */
     private fun volver(parte: Int, cambio: Boolean = false) {
-        finish()
-        overridePendingTransition(0, 0)
-        Pap.lanzar(this, aj, parte, cambio = cambio)
+        if (cambio) {
+            finish(); overridePendingTransition(0, 0)
+            Pap.lanzar(this, aj, parte, cambio = true)
+            return
+        }
+        aj.papParte = parte
+        val b = Pap.busqueda(if (parte == 1) aj.papIzq else aj.papDer, parte)
+        Thread {
+            val t = Adb.tareas(this)?.let { Pap.buscar(it, b) }
+            runOnUiThread {
+                if (t != null) Pap.alFrente(this, t.id) else Pap.lanzar(this, aj, parte)   // sin adb: como antes
+                finish(); overridePendingTransition(0, 0)
+            }
+        }.start()
     }
 
     private fun cerrarPap() {
