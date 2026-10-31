@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Banner 320x180 de la app (vectorial, sin imágenes). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+    <path android:fillColor="#FF101820" android:pathData="M0,0h320v180h-320z" />
+    <path android:fillColor="#FF2BB0ED"
+        android:pathData="M60,120L60,75L100,45L140,75L140,120L115,120L115,95L85,95L85,120Z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M165,70h95v12h-95zM165,95h70v10h-70z" />
+</vector>

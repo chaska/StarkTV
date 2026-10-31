@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Humo</title>
+<!--
+  Humo que sube despacio. Para ponerlo encima de TU imagen: carpeta Fondos/mio/
+  con este archivo como index.html y la foto al lado; cambia FOTO = 'foto.jpg'.
+  Ajustes: NUBES, COLOR, OPACIDAD, SUBIDA.
+-->
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0b0e; }
+  body { background: linear-gradient(180deg, #121218 0%, #0b0b0e 60%, #1a120c 100%); background-size: cover; background-position: center; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const FOTO = '';
+const NUBES = 38;
+const COLOR = '210,210,220';
+const OPACIDAD = 0.10;
+const SUBIDA = 0.45;
+const FPS = 30;
+
+if (FOTO) document.body.style.backgroundImage = `url('${FOTO}')`;
+const c = document.getElementById('c'), g = c.getContext('2d');
+let W, H;
+function medir() { W = c.width = innerWidth; H = c.height = innerHeight; }
+addEventListener('resize', medir); medir();
+
+// Una sola "bocanada" difuminada que se reutiliza: es lo que hace que vaya fluido en una TV.
+const S = 256, sprite = document.createElement('canvas');
+sprite.width = sprite.height = S;
+const sg = sprite.getContext('2d'), grad = sg.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
+grad.addColorStop(0, `rgba(${COLOR},1)`);
+grad.addColorStop(.4, `rgba(${COLOR},.45)`);
+grad.addColorStop(1, `rgba(${COLOR},0)`);
+sg.fillStyle = grad; sg.fillRect(0, 0, S, S);
+
+function nueva(arriba) {
+  return { x: Math.random() * W, y: arriba ? Math.random() * H : H + Math.random() * 200,
+    tam: 220 + Math.random() * 380, vy: SUBIDA * (.5 + Math.random()),
+    vx: (Math.random() - .5) * .3, giro: Math.random() * 6.283, vg: (Math.random() - .5) * .003,
+    vida: Math.random() };
+}
+const nubes = Array.from({ length: NUBES }, () => nueva(true));
+let ultimo = 0;
+function frame(t) {
+  requestAnimationFrame(frame);
+  if (t - ultimo < 1000 / FPS) return;
+  ultimo = t;
+  g.clearRect(0, 0, W, H);
+  for (let i = 0; i < nubes.length; i++) {
+    const n = nubes[i];
+    n.y -= n.vy; n.x += n.vx + Math.sin(t / 4000 + i) * .15; n.giro += n.vg; n.tam += .25;
+    if (n.y + n.tam < 0) { nubes[i] = nueva(false); continue; }
+    // Se desvanece al subir.
+    g.globalAlpha = OPACIDAD * Math.max(0, Math.min(1, n.y / H + .2));
+    g.save(); g.translate(n.x, n.y); g.rotate(n.giro);
+    g.drawImage(sprite, -n.tam / 2, -n.tam / 2, n.tam, n.tam);
+    g.restore();
+  }
+  g.globalAlpha = 1;
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

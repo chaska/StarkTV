@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Partículas</title>
+<!--
+  Fondo de ejemplo. Para usar TU imagen debajo de las partículas:
+  copia este archivo y la foto a una carpeta (p. ej. Fondos/mio/index.html + Fondos/mio/foto.jpg)
+  y cambia FOTO = 'foto.jpg'. Ajustes: CANTIDAD, COLOR, VELOCIDAD, DISTANCIA.
+-->
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05070d; }
+  body { background: radial-gradient(ellipse at 30% 20%, #16314f 0%, #05070d 70%); background-size: cover; background-position: center; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const FOTO = '';            // 'foto.jpg' para poner una imagen de fondo
+const CANTIDAD = 70;
+const COLOR = '120,200,255';
+const VELOCIDAD = 0.35;
+const DISTANCIA = 140;      // a menos de esto, dos puntos se unen con una línea
+const FPS = 30;             // 30 basta en TV y gasta la mitad que 60
+
+if (FOTO) document.body.style.backgroundImage = `url('${FOTO}')`;
+const c = document.getElementById('c'), g = c.getContext('2d');
+let W, H, puntos = [];
+function medir() { W = c.width = innerWidth; H = c.height = innerHeight; }
+addEventListener('resize', medir); medir();
+for (let i = 0; i < CANTIDAD; i++) {
+  puntos.push({ x: Math.random() * W, y: Math.random() * H,
+    vx: (Math.random() - .5) * VELOCIDAD * 2, vy: (Math.random() - .5) * VELOCIDAD * 2,
+    r: 1 + Math.random() * 2.2 });
+}
+let ultimo = 0;
+function frame(t) {
+  requestAnimationFrame(frame);
+  if (t - ultimo < 1000 / FPS) return;
+  ultimo = t;
+  g.clearRect(0, 0, W, H);
+  for (const p of puntos) {
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0 || p.x > W) p.vx *= -1;
+    if (p.y < 0 || p.y > H) p.vy *= -1;
+  }
+  g.lineWidth = 1;
+  for (let i = 0; i < puntos.length; i++) {
+    const a = puntos[i];
+    for (let j = i + 1; j < puntos.length; j++) {
+      const b = puntos[j], dx = a.x - b.x, dy = a.y - b.y, d = dx * dx + dy * dy;
+      if (d < DISTANCIA * DISTANCIA) {
+        g.strokeStyle = `rgba(${COLOR},${(1 - Math.sqrt(d) / DISTANCIA) * .35})`;
+        g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+      }
+    }
+  }
+  g.fillStyle = `rgba(${COLOR},.9)`;
+  for (const p of puntos) { g.beginPath(); g.arc(p.x, p.y, p.r, 0, 6.283); g.fill(); }
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
