@@ -210,7 +210,7 @@ class SelectorPap : Activity() {
             c.drawLine(cx + x, cy - x, cx - x, cy + x, pX)
             // Leyenda.
             val flechas = if (arribaAbajo) "▲ ▼" else "◀ ▶"
-            val texto = "$flechas elige · ▼ cambia la fuente · OK aplica · Para salir del PAP, mantén pulsado Inicio o Atrás"
+            val texto = "$flechas elige · ▼ cambia la fuente · OK aplica · Para salir del PAP, mantén la tuerca o pulsa la X"
             val ty = height - 22 * d
             val w = pTexto.measureText(texto) / 2 + 16 * d
             c.drawRoundRect(cx - w, ty - 22 * d, cx + w, ty + 10 * d, 14 * d, 14 * d, pFondoTexto)

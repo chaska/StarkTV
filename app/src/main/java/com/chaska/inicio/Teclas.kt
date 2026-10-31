@@ -28,6 +28,13 @@ class Teclas : AccessibilityService() {
             Log.i(TAG, "tecla ${e.keyCode} ${KeyEvent.keyCodeToString(e.keyCode)} scan=${e.scanCode} delante=$delante")
         // Con el PAP en marcha, Android TV no vuelve al inicio con la tecla Inicio (intenta abrir
         // «todas las apps» y falla). Inicio corto abre el selector; mantenido, sale del PAP.
+        // Durante el PAP la tuerca cambia de parte (abre el selector) y mantenida cierra el PAP.
+        // Es la tecla que llega siempre: Inicio no llega si una app tiene un vídeo a pantalla completa.
+        if (e.keyCode in TECLAS_AJUSTES && Pap.activo(Ajustes(this))) {
+            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) { largo = true; Pap.cerrar(this, Ajustes(this)) }
+            if (e.action == KeyEvent.ACTION_UP) { if (!largo) Pap.selector(this); largo = false }
+            return true
+        }
         if (e.keyCode == KeyEvent.KEYCODE_HOME && Pap.activo(Ajustes(this))) {
             if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) { largo = true; Pap.cerrar(this, Ajustes(this)) }
             if (e.action == KeyEvent.ACTION_UP) { if (!largo) Pap.selector(this); largo = false }
