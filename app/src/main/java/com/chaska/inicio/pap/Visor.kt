@@ -1,4 +1,6 @@
-package com.chaska.inicio
+package com.chaska.inicio.pap
+
+import com.chaska.inicio.*
 
 import android.app.Activity
 import android.graphics.Color

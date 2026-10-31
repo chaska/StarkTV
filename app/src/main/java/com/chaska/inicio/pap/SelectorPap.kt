@@ -1,4 +1,6 @@
-package com.chaska.inicio
+package com.chaska.inicio.pap
+
+import com.chaska.inicio.*
 
 import android.app.Activity
 import android.content.Context
@@ -39,6 +41,8 @@ class SelectorPap : Activity() {
         setContentView(lienzo)
     }
 
+    override fun onResume() { super.onResume(); actual = this }
+    override fun onDestroy() { if (actual === this) actual = null; super.onDestroy() }
     override fun onStart() { super.onStart(); visible = true }
     override fun onStop() { visible = false; super.onStop() }
 
@@ -141,7 +145,7 @@ class SelectorPap : Activity() {
     }
 
     private fun cerrarPap() {
-        Pap.salir(aj)
+        Pap.cerrar(this, aj)
         finish()
         overridePendingTransition(0, 0)
     }
@@ -149,6 +153,7 @@ class SelectorPap : Activity() {
     companion object {
         /** Para que el colocador del PAP lo vuelva a poner encima si una app se le cuela. */
         @Volatile var visible = false
+        var actual: SelectorPap? = null
     }
 
     /** Qué está marcado: una parte, la fuente de una parte o el círculo de cerrar. */

@@ -1,4 +1,6 @@
-package com.chaska.inicio
+package com.chaska.inicio.pap
+
+import com.chaska.inicio.*
 
 import android.app.Activity
 import android.app.ActivityOptions
@@ -127,11 +129,37 @@ object Pap {
         (ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).moveTaskToFront(id, 0)
     } catch (e: Exception) { Log.w(TAG, "PAP: no se pudo poner delante $id: $e") }
 
-    /** Cierra los visores de TV; las apps se quedan en segundo plano y vuelven a pantalla completa al abrirlas. */
-    fun salir(aj: Ajustes) {
+    /** El PAP está en marcha de verdad (no basta el ajuste: tras reinstalar se queda «activo» sin ventanas). */
+    fun activo(aj: Ajustes) = aj.papActivo && FondoPap.actual != null
+
+    /** Lo único que llama el launcher: si el PAP está en marcha abre el selector; si no, lo empieza. */
+    fun empezar(act: Activity) {
+        val aj = Ajustes(act)
+        if (activo(aj)) { selector(act); return }
         aj.papActivo = false
+        lanzar(act, aj, 1, nuevo = true)
+    }
+
+    fun selector(ctx: Context) =
+        ctx.startActivity(Intent(ctx, SelectorPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), pantallaCompleta())
+
+    /**
+     * Cierra el PAP del todo: las ventanas de las apps de cada parte (por adb), los visores de TV,
+     * el fondo y el selector; y vuelve al launcher. Así la próxima vez esas apps se abren a pantalla completa.
+     */
+    fun cerrar(ctx: Context, aj: Ajustes) {
+        aj.papActivo = false
+        tanda++                                       // para el colocador si seguía en marcha
+        val apps = listOf(aj.papIzq, aj.papDer).filter { !it.startsWith(TV) }
         Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
         FondoPap.actual?.finishAndRemoveTask()
+        SelectorPap.actual?.finish()
+        val app = ctx.applicationContext
+        Thread {
+            Adb.tareas(app)?.filter { t -> t.modo == "freeform" && apps.any { t.afinidad.startsWith(it) } }
+                ?.forEach { Adb.shell(app, "am stack remove ${it.id}") }
+        }.start()
+        ctx.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     /** Opciones para abrir una app normal: pantalla completa aunque la última vez estuviera en el PAP. */

@@ -29,6 +29,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextClock
 import android.widget.TextView
+import com.chaska.inicio.pap.Pap
 import java.io.File
 
 /**
@@ -135,7 +136,7 @@ class MainActivity : Activity() {
             intent.removeExtra(EXTRA_AJUSTES)
             dialogo?.dismiss()
             contenido.post { abrirAjustes() }
-        } else if (aj.papActivo && dialogo?.isShowing != true) contenido.post { panelPap() }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -193,7 +194,7 @@ class MainActivity : Activity() {
         botonAjustes = botonIcono(Icono.Tipo.AJUSTES, "Ajustes") { abrirAjustes() }
         contenido.addView(botonAjustes)
         // PAP de un toque: si está parado lo empieza; si está en marcha, abre su panel.
-        botonPap = botonIcono(Icono.Tipo.PAP, "PAP") { empezarOSelector() }
+        botonPap = botonIcono(Icono.Tipo.PAP, "PAP") { Pap.empezar(this) }
         contenido.addView(botonPap)
 
         bloqueReloj = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -411,7 +412,7 @@ class MainActivity : Activity() {
         botonPap.background = fondoBoton()
         botonPap.visibility = if (aj.papBoton) View.VISIBLE else View.GONE
         // Con el PAP en marcha, el icono se enciende del color de la selección.
-        botonPap.setCompoundDrawablesRelative(icono(Icono.Tipo.PAP, if (aj.papActivo) aj.colorSel else Color.WHITE, 22), null, null, null)
+        botonPap.setCompoundDrawablesRelative(icono(Icono.Tipo.PAP, if (Pap.activo(aj)) aj.colorSel else Color.WHITE, 22), null, null, null)
         ventana.visibility = if (aj.tvVentana) View.VISIBLE else View.GONE
         titulo.visibility = if (aj.tituloDock) View.VISIBLE else View.GONE
     }
@@ -437,7 +438,7 @@ class MainActivity : Activity() {
             })
         }
         anadir(nuevaFicha(null).apply { setOnClickListener { abrirFavoritos() } })
-        if (aj.papDock) anadir(nuevaFicha(Ficha.PAP).apply { setOnClickListener { empezarOSelector() } })
+        if (aj.papDock) anadir(nuevaFicha(Ficha.PAP).apply { setOnClickListener { Pap.empezar(this@MainActivity) } })
         for (p in orden) {
             val f = nuevaFicha(p)
             f.esFavorita = p in favs
@@ -768,7 +769,7 @@ class MainActivity : Activity() {
         opciones("papsonido", "Sonido de la TV", sonidos(aj.papReparto), aj.papSonido) { i -> aj.papSonido = i }
         interruptor("papboton", "Widget PAP en el inicio", aj.papBoton) { aj.papBoton = it; aplicar(); montarDock() }
         interruptor("papdock", "PAP en el dock", aj.papDock) { aj.papDock = it; pintarCarrusel(true) }
-        nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.lanzar(this, aj, nuevo = true) }
+        nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.empezar(this) }
 
         seccion("Sistema")
         nueva("adb", "Permisos avanzados (adb)", if (Adb.conectado) "Conectado" else "Pulsa para conectar  ›") { f ->
@@ -868,19 +869,6 @@ class MainActivity : Activity() {
         panel.addView(g, filaLp())
         dialogo = Vidrio.dialogo(this, panel, aj)
         (g.getChildAt(aj.tvFuente * 2) ?: g.getChildAt(0))?.requestFocus()
-    }
-
-    /** Widget y ficha PAP: si está parado lo empieza; si está en marcha, abre el selector. */
-    private fun empezarOSelector() = if (aj.papActivo) panelPap() else Pap.lanzar(this, aj, nuevo = true)
-
-    /**
-     * Con el PAP en marcha, Inicio vuelve a poner delante las dos partes y abre encima el selector
-     * (recuadro sobre la parte activa, ◀ ▶ para cambiar, X para cerrar).
-     */
-    private fun panelPap() {
-        Pap.lanzar(this, aj, aj.papParte)
-        startActivity(Intent(this, SelectorPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), Pap.pantallaCompleta())
-        overridePendingTransition(0, 0)
     }
 
     /** Grupo de filas con fondo redondeado, como las tarjetas de ajustes del iPhone. */

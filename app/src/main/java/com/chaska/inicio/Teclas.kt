@@ -5,6 +5,7 @@ import android.content.Intent
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import com.chaska.inicio.pap.Pap
 
 /**
  * Servicio de accesibilidad que recoge la tecla de ajustes (la tuerca) del mando antes que el servicio
@@ -27,20 +28,13 @@ class Teclas : AccessibilityService() {
             Log.i(TAG, "tecla ${e.keyCode} ${KeyEvent.keyCodeToString(e.keyCode)} scan=${e.scanCode} delante=$delante")
         // Con el PAP en marcha, Android TV no vuelve al inicio con la tecla Inicio (intenta abrir
         // «todas las apps» y falla). Inicio corto abre el selector; mantenido, sale del PAP.
-        if (e.keyCode == KeyEvent.KEYCODE_HOME && Ajustes(this).papActivo) {
-            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) {
-                largo = true
-                Pap.salir(Ajustes(this))
-                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }
-            if (e.action == KeyEvent.ACTION_UP) {
-                if (!largo) startActivity(Intent(this, SelectorPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), Pap.pantallaCompleta())
-                largo = false
-            }
+        if (e.keyCode == KeyEvent.KEYCODE_HOME && Pap.activo(Ajustes(this))) {
+            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) { largo = true; Pap.cerrar(this, Ajustes(this)) }
+            if (e.action == KeyEvent.ACTION_UP) { if (!largo) Pap.selector(this); largo = false }
             return true
         }
         if (e.keyCode !in TECLAS_AJUSTES) return false
-        val nuestro = delante == packageName || Ajustes(this).papActivo
+        val nuestro = delante == packageName || Pap.activo(Ajustes(this))
         if (!nuestro) return false
         if (e.action == KeyEvent.ACTION_UP) {
             startActivity(Intent(this, MainActivity::class.java)

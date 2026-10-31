@@ -83,7 +83,7 @@
 
         <!-- Selector del PAP (recuadro sobre la parte activa). Tarea propia, por encima de las dos partes. -->
         <activity
-            android:name=".SelectorPap"
+            android:name=".pap.SelectorPap"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
@@ -93,7 +93,7 @@
 
         <!-- Fondo negro del PAP, a pantalla completa debajo de las dos partes. -->
         <activity
-            android:name=".FondoPap"
+            android:name=".pap.FondoPap"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
@@ -101,7 +101,7 @@
 
         <!-- Visores de TV del PAP: uno por mitad, cada uno en su tarea para poder estar a la vez. -->
         <activity
-            android:name=".VisorIzq"
+            android:name=".pap.VisorIzq"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:excludeFromRecents="true"
             android:exported="false"
@@ -109,7 +109,7 @@
             android:resizeableActivity="true"
             android:taskAffinity="com.chaska.inicio.pap1" />
         <activity
-            android:name=".VisorDer"
+            android:name=".pap.VisorDer"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:excludeFromRecents="true"
             android:exported="false"
