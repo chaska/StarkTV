@@ -368,6 +368,7 @@ class MainActivity : Activity() {
             } else dp(32)
             lp.marginStart = dp(32); lp.marginEnd = dp(32)
             ventana.layoutParams = lp
+            apartarVentana()
             return
         }
         when (aj.dock) {
@@ -377,6 +378,42 @@ class MainActivity : Activity() {
         }
         lp.marginStart = dp(32); lp.marginEnd = dp(32)
         ventana.layoutParams = lp
+        apartarVentana()
+    }
+
+    /** Ya colocado todo, si la ventanita pisa el dock se aparta: a su lado si el dock es vertical,
+     *  encima o debajo si es horizontal. Se mide el dock de verdad, no se supone su tamaño. */
+    private fun apartarVentana() {
+        if (!aj.tvVentana) return
+        val vto = contenido.viewTreeObserver
+        vto.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                contenido.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                val z = zonaDock ?: return
+                val rv = android.graphics.Rect().also { ventana.getHitRect(it) }
+                val rz = android.graphics.Rect().also { z.getHitRect(it) }
+                // En horizontal la zona ocupa todo el ancho: lo que cuenta es la fila de fichas.
+                if (!vertical) rz.set(0, rz.top, contenido.width, rz.bottom)
+                if (!android.graphics.Rect.intersects(rv, rz)) return
+                val lp = ventana.layoutParams as FrameLayout.LayoutParams
+                val hueco = dp(16)
+                if (vertical) {
+                    // Dock a la izquierda: la ventanita justo a su derecha; dock a la derecha: justo a su izquierda.
+                    val arriba = lp.gravity and Gravity.VERTICAL_GRAVITY_MASK
+                    if (rz.centerX() < contenido.width / 2) {
+                        lp.gravity = arriba or Gravity.START; lp.marginStart = rz.right + hueco; lp.marginEnd = 0
+                    } else {
+                        lp.gravity = arriba or Gravity.END; lp.marginEnd = contenido.width - rz.left + hueco; lp.marginStart = 0
+                    }
+                } else {
+                    val encima = rz.top - hueco - rv.height()
+                    lp.gravity = (lp.gravity and Gravity.HORIZONTAL_GRAVITY_MASK) or Gravity.TOP
+                    lp.bottomMargin = 0
+                    lp.topMargin = if (encima >= dp(70)) encima else rz.bottom + hueco
+                }
+                ventana.layoutParams = lp
+            }
+        })
     }
 
     private fun construirSalva(): LinearLayout = LinearLayout(this).apply {

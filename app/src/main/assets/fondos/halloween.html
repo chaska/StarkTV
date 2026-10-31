@@ -44,15 +44,17 @@ function medir() {
 }
 
 // ---------- Medidas sobre la imagen (px de 1672x941) ----------
+// Medidas sobre la imagen: centro y tamaño de cada punto naranja (ojos, nariz, boca, farol, ventana).
 const calabazas = [
-  { ojos: [[182, 700], [258, 714]], boca: [217, 757], r: 34, fase: 0 },    // grande, izquierda
-  { ojos: [[356, 764], [386, 764]], boca: [378, 790], r: 16, fase: 1.7 },  // mediana, izquierda
-  { ojos: [], boca: [618, 808], r: 14, fase: 3.1 },                        // pequeña, centro
-  { ojos: [[1443, 803], [1489, 803]], boca: [1463, 834], r: 26, fase: 4.4 }, // grande, derecha
-  { ojos: [], boca: [1352, 838], r: 14, fase: 5.6 },                       // pequeña, derecha
+  { fase: 0,   puntos: [[196, 705, 9], [256, 716, 8], [223, 728, 5], [196, 751, 13], [221, 758, 15], [246, 757, 12]] }, // grande, izquierda
+  { fase: 1.7, puntos: [[371, 766, 7], [399, 771, 5], [386, 777, 4], [366, 790, 9], [389, 792, 9]] },                  // mediana, izquierda
+  { fase: 3.1, puntos: [[613, 801, 4], [622, 807, 3], [619, 814, 7]] },                                                // pequeña, centro
+  { fase: 5.6, puntos: [[1352, 826, 5], [1350, 841, 10]] },                                                            // pequeña, derecha
+  { fase: 4.4, puntos: [[1425, 802, 7], [1468, 798, 9], [1444, 814, 4], [1444, 834, 13], [1475, 834, 13]] },           // grande, derecha
 ];
-const farolillos = [[380, 338], [1482, 590]];
-const ventanas = [[1323, 386], [1253, 393], [1174, 329], [1138, 408], [1170, 393], [1248, 227], [1203, 322], [1329, 380], [1235, 399], [1290, 395]];
+const farolillos = [[378, 341], [1489, 588]];
+const ventanas = [[1276, 175], [1249, 228], [1275, 231], [1327, 318], [1203, 322], [1173, 328], [1323, 385], [1330, 386],
+  [1252, 393], [1171, 394], [1237, 395], [1136, 409], [1073, 434]];
 // Cascadas: la de debajo del puente y la del castillo.
 const cascadas = [{ x: 780, y: 560, w: 145, h: 128, vel: .075 }, { x: 1340, y: 420, w: 68, h: 122, vel: .06 }];
 
@@ -198,17 +200,15 @@ function fotograma(t) {
   for (const k of calabazas) {
     const onda = .5 + .5 * Math.sin(t * .0016 + k.fase), vela = .85 + .15 * Math.sin(t * .021 + k.fase * 3);
     const a = onda * onda * vela;
-    for (const [u, v] of k.ojos) { luz(u, v, k.r, '255,130,25', .85 * a); luz(u, v, k.r * .45, '255,215,110', .9 * a); }
-    luz(k.boca[0], k.boca[1], k.r * 1.7, '255,105,15', .7 * a);
-    luz(k.boca[0], k.boca[1], k.r * .8, '255,200,90', .75 * a);
+    for (const [u, v, r] of k.puntos) { luz(u, v, r * 2.4, '255,120,20', .6 * a); luz(u, v, r, '255,215,120', .85 * a); }
   }
   farolillos.forEach(([u, v], i) => {
     const f = .7 + .2 * Math.sin(t * .009 + i * 2) + .1 * Math.sin(t * .031 + i);
-    luz(u, v, 85, '255,150,50', .45 * f); luz(u, v, 18, '255,225,140', .9 * f);
+    luz(u, v, 60, '255,150,50', .4 * f); luz(u, v, 10, '255,225,140', .9 * f);
   });
   ventanas.forEach(([u, v], i) => {
     const f = .45 + .35 * Math.sin(t * .002 + i * 5.3) + .18 * Math.sin(t * .006 + i);
-    luz(u, v, 16, '255,140,45', Math.max(.08, .42 * f));
+    luz(u, v, 9, '255,150,50', Math.max(.12, .6 * f));
   });
   for (const p of chispas) {
     p.v -= p.vel * dt / 1000; p.u += p.dx * dt / 1000;
