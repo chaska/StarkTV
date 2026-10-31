@@ -3,6 +3,7 @@ package com.chaska.inicio
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.Dialog
+import android.app.role.RoleManager
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -56,6 +57,8 @@ class MainActivity : Activity() {
     private lateinit var bloqueReloj: LinearLayout
 
     private var dialogo: Dialog? = null
+    /** Interruptor «Launcher por defecto» de Ajustes, para ponerlo al día al volver de los ajustes del sistema. */
+    private var swPorDefecto: Interruptor? = null
     private var moviendo: Ficha? = null
     private var firma = ""
     private var textoTiempo: String? = null
@@ -101,6 +104,7 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        swPorDefecto?.encendido = esPorDefecto()
         aplicar()
         fondo.mostrar(aj.fondo)
         pintarCarrusel()
@@ -728,6 +732,11 @@ class MainActivity : Activity() {
         interruptor("cristal", "Cristal difuminado", aj.cristal) { aj.cristal = it }
         interruptor("animaciones", "Animaciones de luz", aj.animaciones) { aj.animaciones = it; pintarCarrusel(true) }
 
+        seccion("Sistema")
+        val sw = Interruptor(this, esPorDefecto())
+        swPorDefecto = sw
+        nueva("pordefecto", "Launcher por defecto", acc = sw) { cambiarPorDefecto(!esPorDefecto()) }
+
         seccion("Copia")
         nueva("copia", "Copia de ajustes", "Guardar o recuperar  ›") { elegirCopia() }
         cuerpo.addView(nota("Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName}"))
@@ -738,6 +747,36 @@ class MainActivity : Activity() {
         dialogo = dl
         val foco = enfocar?.let { cuerpo.findViewWithTag<View>(it) } ?: cuerpo.findViewWithTag<View>("fondo")
         foco?.requestFocus()
+    }
+
+    private fun esPorDefecto() = getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_HOME) == true
+
+    /**
+     * Encender: Android pregunta si usar Stark TV como inicio.
+     * Apagar: si el inicio de Google está desactivado, se abre su ficha para pulsar «Activar»;
+     * si ya está activo, la pantalla (escondida en Android TV) para elegir el inicio.
+     */
+    private fun cambiarPorDefecto(serlo: Boolean) {
+        if (serlo) {
+            try {
+                startActivityForResult(getSystemService(RoleManager::class.java).createRequestRoleIntent(RoleManager.ROLE_HOME), 7)
+            } catch (e: Exception) { abrirElegirInicio() }
+            return
+        }
+        val google = "com.google.android.tvlauncher"
+        val activo = try { packageManager.getApplicationInfo(google, 0).enabled } catch (e: Exception) { false }
+        if (!activo) {
+            avisar("Pulsa «Activar» y vuelve con Atrás")
+            try {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", google, null))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            } catch (e: Exception) { avisar("No encuentro el inicio de Google") }
+        } else abrirElegirInicio()
+    }
+
+    private fun abrirElegirInicio() {
+        try { startActivity(Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        catch (e: Exception) { avisar("Esta TV no deja elegir el inicio") }
     }
 
     /** Grupo de filas con fondo redondeado, como las tarjetas de ajustes del iPhone. */

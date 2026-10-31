@@ -27,6 +27,8 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- Para saber si el inicio de Google está desactivado (interruptor «Launcher por defecto»). -->
+        <package android:name="com.google.android.tvlauncher" />
     </queries>
 
     <application
