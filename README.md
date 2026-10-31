@@ -3,9 +3,14 @@
 Launcher ligero para Android TV (probado para la Thomson 2K, Android TV 14, 1 GB de RAM).
 Sin anuncios, sin librerías: el APK de release pesa unos 60 KB.
 
-- Reloj y fecha, botón **Ajustes** y fila de **favoritas** (OK mantenido sobre una ficha: mover / quitar; ficha **+** para añadir).
+- Carrusel con **Favoritos** primero (cuadrícula 3×2, máximo 6) y luego todas las apps.
+- **OK mantenido** sobre una app: añadir/quitar de favoritos, **mover** (la ficha se levanta y viaja con ◀ ▶; OK la suelta), ocultar e información.
+- Fichas en 3D: brillo de cristal, sombra, halo del color de la app, luz que gira por el borde, destello y reflejo en el suelo. Un foco de luz del color de la app activa la sigue por la pantalla.
+- Reloj, fecha y **tiempo** (Open-Meteo, gratis y sin clave; la ciudad se pone en ajustes).
+- **Ajustes** → Ajustes generales (los de la TV) y Ajustes del launcher: fondo, brillo, reloj, tiempo, ciudad, nombres, tamaño, apps ocultas, cambiar fondo solo, salvapantallas, color de la selección, reflejo, cristal difuminado, animaciones y copia de ajustes (`/sdcard/InicioTV/copia.json`).
 - Fondos: **imagen** (jpg, png, webp…), **GIF animado**, **vídeo** (mp4, mkv, webm; en bucle y sin sonido) y **HTML5** (canvas/WebGL: partículas, humo…).
 - El fondo se destruye al salir del inicio: mientras ves Netflix o la TDT no gasta RAM ni GPU.
+- Si la TV va justa: apagar «Reflejo en el suelo», «Cristal difuminado» y «Animaciones de luz» en Ajustes del launcher.
 
 ## Dónde poner los fondos
 
