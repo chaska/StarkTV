@@ -47,6 +47,7 @@ class MainActivity : Activity() {
     private lateinit var botonAjustes: TextView
     private lateinit var botonPap: TextView
     private lateinit var hora: TextClock
+    private lateinit var horaSalva: TextClock
     private lateinit var fecha: TextClock
     private lateinit var tiempo: TextView
     private lateinit var titulo: TextView
@@ -83,6 +84,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Fuentes.actual = aj.fuente
+        Tema.color = aj.colorSel
         val raiz = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         val capa = FrameLayout(this)
         raiz.addView(capa, lleno())
@@ -429,7 +431,8 @@ class MainActivity : Activity() {
         gravity = Gravity.CENTER
         alpha = 0f
         visibility = View.GONE
-        addView(relojDegradado(110f))
+        horaSalva = relojDegradado(110f)
+        addView(horaSalva)
         addView(TextClock(this@MainActivity).apply {
             format24Hour = "EEEE, d 'de' MMMM"; format12Hour = format24Hour
             textSize = 22f
@@ -450,12 +453,17 @@ class MainActivity : Activity() {
         format24Hour = "HH:mm"; format12Hour = "HH:mm"
         textSize = tam
         setTextColor(Color.WHITE)
-        setShadowLayer(dp(14).toFloat(), 0f, 0f, 0x668CB4FF)
-        addOnLayoutChangeListener { v, _, top, _, bottom, _, _, _, _ ->
-            (v as TextView).paint.shader = LinearGradient(0f, 0f, 0f, (bottom - top).toFloat(),
-                Color.WHITE, 0xFFC9D4EA.toInt(), Shader.TileMode.CLAMP)
-        }
+        addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> pintarHora(v as TextView) }
+        pintarHora(this)
     }.conFuente(medio = true)
+
+    /** Hora en degradado blanco hacia el color de la interfaz, con un resplandor de ese color. */
+    private fun pintarHora(v: TextView) {
+        v.setShadowLayer(dp(14).toFloat(), 0f, 0f, conAlfa(Tema.color, 0x66))
+        v.paint.shader = LinearGradient(0f, 0f, 0f, v.height.coerceAtLeast(1).toFloat(),
+            Color.WHITE, Ficha.mezclar(Color.WHITE, Tema.color, .3f), Shader.TileMode.CLAMP)
+        v.invalidate()
+    }
 
     private fun fondoBoton() = StateListDrawable().apply {
         addState(intArrayOf(android.R.attr.state_focused),
@@ -831,8 +839,10 @@ class MainActivity : Activity() {
 
         seccion("Pantalla")
         nueva("fuente", "Tipografía", "${Fuentes.LISTA[aj.fuente].nombre}  ›") { elegirFuente() }
-        opciones("color", "Color de la selección", Ajustes.COLORES.map { it.first }, aj.color) { i ->
+        opciones("color", "Color de la interfaz", Ajustes.COLORES.map { it.first }, aj.color) { i ->
             aj.color = i
+            Tema.color = aj.colorSel
+            pintarHora(hora); pintarHora(horaSalva); luces.cambiarTema()
             aplicar()
             dialogo?.dismiss()
             abrirLauncher(enfocar = "color")     // se vuelve a abrir para pintarlo con el color nuevo

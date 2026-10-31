@@ -32,6 +32,7 @@ class SelectorPap : Activity() {
         super.onCreate(savedInstanceState)
         if (!Pap.lanzadoEnEsteProceso) { aj.papActivo = false; finish(); return }
         Fuentes.actual = aj.fuente
+        Tema.color = aj.colorSel
         ops = Pap.opciones(this)
         elegida[0] = ops.indexOfFirst { it.first == aj.papIzq }.coerceAtLeast(0)
         elegida[1] = ops.indexOfFirst { it.first == aj.papDer }.coerceAtLeast(0)

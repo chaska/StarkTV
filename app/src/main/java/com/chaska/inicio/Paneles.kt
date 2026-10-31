@@ -27,12 +27,19 @@ fun Context.dp(v: Number): Int =
 
 fun conAlfa(c: Int, a: Int) = Color.argb(a, Color.red(c), Color.green(c), Color.blue(c))
 
-/** Paneles de cristal: degradado azulado translúcido, borde de luz y el fondo difuminado detrás. */
+/** Color de la interfaz (ajuste de Pantalla): tiñe paneles, interruptores, reloj, luces y la selección. */
+object Tema {
+    var color = 0xFFF2A93B.toInt()
+}
+
+/** Paneles de cristal: degradado translúcido teñido del color de la interfaz, borde de luz y el fondo difuminado detrás. */
 object Vidrio {
     fun fondo(ctx: Context): Drawable =
-        GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xB02E3852.toInt(), 0xE00E111C.toInt())).apply {
+        GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(
+            conAlfa(Ficha.mezclar(0xFF2E3852.toInt(), Tema.color, .3f), 0xB0),
+            conAlfa(Ficha.mezclar(0xFF0E111C.toInt(), Tema.color, .1f), 0xE0))).apply {
             cornerRadius = ctx.dp(18).toFloat()
-            setStroke(ctx.dp(1), 0x33FFFFFF)
+            setStroke(ctx.dp(1), conAlfa(Ficha.mezclar(Color.WHITE, Tema.color, .5f), 0x40))
         }
 
     fun panel(ctx: Context, titulo: String?, ancho: Int, icono: Icono.Tipo? = null, dibujo: Drawable? = null): LinearLayout = LinearLayout(ctx).apply {
@@ -123,7 +130,7 @@ class Fila(ctx: Context, titulo: String, sel: Int, icono: Icono.Tipo? = null, di
     }.conFuente()
 }
 
-/** Interruptor encendido/apagado dibujado a mano (verde con luz cuando está encendido). */
+/** Interruptor encendido/apagado dibujado a mano (del color de la interfaz, con luz, cuando está encendido). */
 class Interruptor(ctx: Context, encendido: Boolean) : View(ctx) {
     var encendido = encendido
         set(v) { field = v; invalidate() }
@@ -134,9 +141,10 @@ class Interruptor(ctx: Context, encendido: Boolean) : View(ctx) {
 
     override fun onDraw(c: Canvas) {
         val r = RectF(0f, 0f, width.toFloat(), height.toFloat())
-        p.shader = if (encendido) LinearGradient(0f, 0f, 0f, r.bottom, 0xFF45D39B.toInt(), 0xFF1F8A62.toInt(), Shader.TileMode.CLAMP) else null
+        val t = Tema.color
+        p.shader = if (encendido) LinearGradient(0f, 0f, 0f, r.bottom, Ficha.mezclar(t, Color.WHITE, .15f), Ficha.mezclar(t, Color.BLACK, .35f), Shader.TileMode.CLAMP) else null
         p.color = if (encendido) Color.WHITE else 0xFF3A3F4B.toInt()
-        if (encendido) p.setShadowLayer(6 * d, 0f, 0f, 0x8C45D39B.toInt()) else p.clearShadowLayer()
+        if (encendido) p.setShadowLayer(6 * d, 0f, 0f, conAlfa(t, 0x8C)) else p.clearShadowLayer()
         c.drawRoundRect(r, r.height() / 2, r.height() / 2, p)
         p.shader = null
         p.color = Color.WHITE

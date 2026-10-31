@@ -62,13 +62,16 @@ class Luces(ctx: Context) : View(ctx) {
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         val fw = w.toFloat(); val fh = h.toFloat()
-        pCenital.shader = RadialGradient(fw * .12f, -fh * .08f, fw * .5f, 0x3878AAFF, 0, Shader.TileMode.CLAMP)
+        pCenital.shader = RadialGradient(fw * .12f, -fh * .08f, fw * .5f, conAlfa(Ficha.mezclar(0xFF78AAFF.toInt(), Tema.color, .6f), 0x38), 0, Shader.TileMode.CLAMP)
         pContra.shader = RadialGradient(fw * .95f, 0f, fw * .36f, 0x26FF8C5A, 0, Shader.TileMode.CLAMP)
         pSuelo.shader = LinearGradient(0f, fh * .62f, 0f, fh,
             intArrayOf(0, 0x8C000000.toInt(), 0xCC000000.toInt()), floatArrayOf(0f, .4f, 1f), Shader.TileMode.CLAMP)
         pVineta.shader = RadialGradient(fw / 2, fh * .45f, fw * .75f,
             intArrayOf(0, 0, 0xA6000000.toInt()), floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP)
     }
+
+    /** Repinta la luz de ambiente con el color de la interfaz nuevo. */
+    fun cambiarTema() { if (width > 0) onSizeChanged(width, height, width, height); invalidate() }
 
     private var colorShader = 0
 
