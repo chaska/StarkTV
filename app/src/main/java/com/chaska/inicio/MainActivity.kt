@@ -842,6 +842,7 @@ class MainActivity : Activity() {
             if (aj.tvVentana) { ventana.apagar(); ventana.encender() }
         }
         interruptor("tvsonido", "Sonido de la ventana", aj.tvSonido) { aj.tvSonido = it; ventana.sonido(it) }
+        interruptor("tvrotulo", "Nombre del canal y la fuente", aj.tvRotulo) { aj.tvRotulo = it; ventana.mostrarRotulo(it) }
 
         seccion("Efectos")
         interruptor("reflejo", "Reflejo en el suelo", aj.reflejo) { aj.reflejo = it; pintarCarrusel(true) }

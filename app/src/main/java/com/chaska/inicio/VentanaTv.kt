@@ -43,6 +43,9 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         setPadding(ctx.dp(10), ctx.dp(14), ctx.dp(10), ctx.dp(6))
         background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xB3000000.toInt(), 0))
     }.conFuente(medio = true)
+    /** Enseña u oculta el nombre del canal o de la fuente (ajuste «Nombre del canal y la fuente»). */
+    fun mostrarRotulo(si: Boolean) { rotulo.visibility = if (si) View.VISIBLE else View.GONE }
+
     private var canales: List<Canal> = emptyList()
     private var actual = -1
     private var entrada: String? = null
@@ -65,6 +68,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         addView(tv, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(estado, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(rotulo, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
+        mostrarRotulo(prefs.getBoolean("tv_rotulo", true))
         // Marco: borde fino, que se enciende del color de la selección con el foco.
         foreground = GradientDrawable().apply { cornerRadius = ctx.dp(14).toFloat(); setStroke(ctx.dp(1), 0x40FFFFFF) }
         setOnFocusChangeListener { v, f ->
