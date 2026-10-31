@@ -60,6 +60,20 @@
             </intent-filter>
         </activity>
 
+        <!-- Tecla de ajustes del mando (ver Teclas.kt). Se activa por adb. -->
+        <service
+            android:name=".Teclas"
+            android:exported="true"
+            android:label="Stark TV · tecla de ajustes"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/teclas" />
+        </service>
+
         <!-- Visores de TV del PAP: uno por mitad, cada uno en su tarea para poder estar a la vez. -->
         <activity
             android:name=".VisorIzq"

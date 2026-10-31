@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Stark TV</string>
+    <string name="teclas_descripcion">Hace que la tecla de ajustes del mando abra los ajustes de Stark TV cuando estás en Stark TV.</string>
 </resources>

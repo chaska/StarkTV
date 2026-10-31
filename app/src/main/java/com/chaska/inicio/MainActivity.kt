@@ -126,11 +126,18 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (aj.papActivo && dialogo?.isShowing != true) contenido.post { panelPap() }
+        // La tuerca del mando (servicio Teclas) pide abrir los ajustes de Stark TV.
+        if (intent.getBooleanExtra(EXTRA_AJUSTES, false)) {
+            intent.removeExtra(EXTRA_AJUSTES)
+            dialogo?.dismiss()
+            contenido.post { abrirAjustes() }
+        } else if (aj.papActivo && dialogo?.isShowing != true) contenido.post { panelPap() }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_AJUSTES, false)) return      // lo abre onResume
         // Pulsar Inicio estando ya aquí: cierra todo y vuelve al principio del dock.
         dialogo?.dismiss()
         soltar()
@@ -740,12 +747,10 @@ class MainActivity : Activity() {
         seccion("PAP · dos cosas a la vez")
         opciones("papreparto", "Reparto", Pap.REPARTOS, aj.papReparto) { i -> aj.papReparto = i }
         val partes = { r: Int -> if (r == 3) "Arriba" to "Abajo" else "Izquierda" to "Derecha" }
-        nueva("papizq", partes(aj.papReparto).first, "${Pap.nombre(this, aj.papIzq)}  ›") { f ->
-            elegirParte(aj.papIzq) { c -> aj.papIzq = c; f.valor.text = "${Pap.nombre(this, c)}  ›" }
-        }
-        nueva("papder", partes(aj.papReparto).second, "${Pap.nombre(this, aj.papDer)}  ›") { f ->
-            elegirParte(aj.papDer) { c -> aj.papDer = c; f.valor.text = "${Pap.nombre(this, c)}  ›" }
-        }
+        // Qué va en cada parte: ◀ ▶ recorren Antena, HDMI 1-3, AV y las apps; OK abre la lista.
+        val papOps = Pap.opciones(this)
+        opciones("papizq", partes(aj.papReparto).first, papOps.map { it.second }, papOps.indexOfFirst { it.first == aj.papIzq }) { i -> aj.papIzq = papOps[i].first }
+        opciones("papder", partes(aj.papReparto).second, papOps.map { it.second }, papOps.indexOfFirst { it.first == aj.papDer }) { i -> aj.papDer = papOps[i].first }
         val sonidos = { r: Int -> if (r == 3) listOf("La que manejas", "Arriba", "Abajo", "Las dos") else listOf("La que manejas", "Izquierda", "Derecha", "Las dos") }
         opciones("papsonido", "Sonido de la TV", sonidos(aj.papReparto), aj.papSonido) { i -> aj.papSonido = i }
         nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.lanzar(this, aj) }
@@ -795,11 +800,6 @@ class MainActivity : Activity() {
     private fun abrirElegirInicio() {
         try { startActivity(Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         catch (e: Exception) { avisar("Esta TV no deja elegir el inicio") }
-    }
-
-    private fun elegirParte(actual: String, listo: (String) -> Unit) {
-        val ops = Pap.opciones(this)
-        elegir("Qué poner", ops.map { it.second }, actual = ops.indexOfFirst { it.first == actual }) { i -> listo(ops[i].first) }
     }
 
     /** Con el PAP en marcha, Inicio enseña esto en vez de quedarse en el launcher. */
@@ -996,6 +996,7 @@ class MainActivity : Activity() {
     private fun lleno() = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
 
     companion object {
+        const val EXTRA_AJUSTES = "abrir_ajustes"
         /** Fila de Launcher a la que volver tras rehacer la pantalla (cambio de fuente). */
         private var reabrirLauncher: String? = null
     }
