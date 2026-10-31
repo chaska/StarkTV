@@ -191,7 +191,7 @@ class MainActivity : Activity() {
         botonAjustes = botonIcono(Icono.Tipo.AJUSTES, "Ajustes") { abrirAjustes() }
         contenido.addView(botonAjustes)
         // PAP de un toque: si está parado lo empieza; si está en marcha, abre su panel.
-        botonPap = botonIcono(Icono.Tipo.PAP, "PAP") { if (aj.papActivo) panelPap() else Pap.lanzar(this, aj) }
+        botonPap = botonIcono(Icono.Tipo.PAP, "PAP") { if (aj.papActivo) panelPap() else Pap.lanzar(this, aj, nuevo = true) }
         contenido.addView(botonPap)
 
         bloqueReloj = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -755,7 +755,7 @@ class MainActivity : Activity() {
         val sonidos = { r: Int -> if (r == 3) listOf("La que manejas", "Arriba", "Abajo", "Las dos") else listOf("La que manejas", "Izquierda", "Derecha", "Las dos") }
         opciones("papsonido", "Sonido de la TV", sonidos(aj.papReparto), aj.papSonido) { i -> aj.papSonido = i }
         interruptor("papboton", "Botón PAP en el inicio", aj.papBoton) { aj.papBoton = it; aplicar(); montarDock() }
-        nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.lanzar(this, aj) }
+        nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.lanzar(this, aj, nuevo = true) }
 
         seccion("Sistema")
         val sw = Interruptor(this, esPorDefecto())

@@ -46,13 +46,15 @@ object Pap {
      * Abre (o trae delante) las dos partes. [manejar] 1 o 2 es la que queda con el mando:
      * se abre la otra primero y la elegida al final.
      */
-    fun lanzar(act: Activity, aj: Ajustes, manejar: Int = 1) {
+    fun lanzar(act: Activity, aj: Ajustes, manejar: Int = 1, nuevo: Boolean = false) {
         val (r1, r2) = limites(act, aj.papReparto)
         // Android corre 80 px una ventana libre si cae en el sitio exacto de otra (aunque esté oculta,
-        // p. ej. de un PAP anterior). Se cierran nuestros visores y se desplaza 0-2 px en cada arranque.
-        Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
-        val d = (aj.p.getInt("pap_n", 0) + 1) % 3
-        aj.p.edit().putInt("pap_n", d).apply()
+        // p. ej. de un PAP anterior). Al empezar de cero se cierran nuestros visores y se desplaza 0-2 px.
+        if (nuevo) {
+            Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
+            aj.p.edit().putInt("pap_n", (aj.p.getInt("pap_n", 0) + 1) % 3).apply()
+        }
+        val d = aj.p.getInt("pap_n", 0)
         r1.left += d; r2.left += d
         val partes = listOf(Triple(aj.papIzq, r1, VisorIzq::class.java), Triple(aj.papDer, r2, VisorDer::class.java))
         val orden = if (manejar == 1) listOf(1, 0) else listOf(0, 1)
