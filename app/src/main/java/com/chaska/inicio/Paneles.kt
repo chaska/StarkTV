@@ -32,17 +32,22 @@ object Tema {
     var color = 0xFFF2A93B.toInt()
     /** Opacidad de los menús en % (ajuste de Pantalla). */
     var opacidad = 80
+    /** Cuánto se oscurecen los colores de los menús, en % (sin tocar la transparencia). */
+    var oscuridad = 40
 }
 
 /** Paneles de cristal: degradado translúcido teñido del color de la interfaz, borde de luz y el fondo difuminado detrás. */
 object Vidrio {
-    fun fondo(ctx: Context): Drawable =
-        GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(
-            conAlfa(Ficha.mezclar(0xFF2E3852.toInt(), Tema.color, .3f), Tema.opacidad.coerceIn(0, 100) * 255 / 100),
-            conAlfa(Ficha.mezclar(0xFF0E111C.toInt(), Tema.color, .1f), (Tema.opacidad.coerceIn(0, 100) * 255 / 100 + 60).coerceAtMost(255)))).apply {
+    fun fondo(ctx: Context): Drawable {
+        val negro = Tema.oscuridad.coerceIn(0, 90) / 100f
+        val alfa = Tema.opacidad.coerceIn(0, 100) * 255 / 100
+        return GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(
+            conAlfa(Ficha.mezclar(Ficha.mezclar(0xFF2E3852.toInt(), Tema.color, .3f), Color.BLACK, negro), alfa),
+            conAlfa(Ficha.mezclar(Ficha.mezclar(0xFF0E111C.toInt(), Tema.color, .1f), Color.BLACK, negro), (alfa + 60).coerceAtMost(255)))).apply {
             cornerRadius = ctx.dp(18).toFloat()
             setStroke(ctx.dp(1), conAlfa(Ficha.mezclar(Color.WHITE, Tema.color, .5f), 0x40))
         }
+    }
 
     fun panel(ctx: Context, titulo: String?, ancho: Int, icono: Icono.Tipo? = null, dibujo: Drawable? = null): LinearLayout = LinearLayout(ctx).apply {
         orientation = LinearLayout.VERTICAL

@@ -29,6 +29,7 @@ open class Visor(val parte: Int) : Activity() {
         Fuentes.actual = aj.fuente
         Tema.color = aj.colorSel
         Tema.opacidad = aj.opacidad
+        Tema.oscuridad = aj.oscuridad
         ventana = VentanaTv(this, aj.colorSel, aj.p).apply {
             isFocusable = false
             onFocusChangeListener = null

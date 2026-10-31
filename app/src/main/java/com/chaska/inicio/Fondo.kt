@@ -59,7 +59,8 @@ object CatalogoFondos {
         val res = mutableListOf<OpcionFondo>()
         val hay = ctx.assets.list("fondos")?.toSet().orEmpty()
         for ((f, nombre) in INCLUIDOS) if (f in hay) tipoDe(f)?.let { res += OpcionFondo("asset:$f", nombre, it) }
-        for (dir in carpetas()) {
+        // Primero los recibidos desde el móvil o el PC (Ajustes › Fondo › Recibir fondos).
+        for (dir in listOf(File(ctx.filesDir, "fondos")) + carpetas()) {
             // Una subcarpeta con index.html (y sus imágenes) también vale: Fondos/humo/index.html
             dir.listFiles()?.sortedBy { it.name.lowercase() }?.forEach { f ->
                 // Una copia de un fondo que ya trae la app (castillo.webp en Descargas) no sale dos veces.

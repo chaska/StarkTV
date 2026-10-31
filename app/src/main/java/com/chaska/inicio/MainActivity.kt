@@ -87,6 +87,7 @@ class MainActivity : Activity() {
         Fuentes.actual = aj.fuente
         Tema.color = aj.colorSel
         Tema.opacidad = aj.opacidad
+        Tema.oscuridad = aj.oscuridad
         val raiz = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         val capa = FrameLayout(this)
         raiz.addView(capa, lleno())
@@ -826,6 +827,7 @@ class MainActivity : Activity() {
             aj.rotarMin = Ajustes.MINUTOS_ROTAR[i]; ultimaRotacion = SystemClock.uptimeMillis()
         }
         interruptor("version", "Ver la versión sobre el fondo", aj.verVersion) { aj.verVersion = it; aplicar() }
+        nueva("recibir", "Recibir fondos desde el móvil o PC", "›") { abrirRecibir() }
 
         seccion("Dock")
         opciones("dock", "Posición", Ajustes.POSICIONES, aj.dock) { i -> aj.dock = i; montarDock(); pintarCarrusel(true) }
@@ -865,6 +867,21 @@ class MainActivity : Activity() {
         filaOp.setOnKeyListener { _, code, ev ->
             if (code != KeyEvent.KEYCODE_DPAD_LEFT && code != KeyEvent.KEYCODE_DPAD_RIGHT) return@setOnKeyListener false
             if (ev.action == KeyEvent.ACTION_DOWN) ponerOpacidad(aj.opacidad + if (code == KeyEvent.KEYCODE_DPAD_RIGHT) 10 else -10, filaOp)
+            true
+        }
+        // Oscuridad de los menús: lleva sus colores hacia el negro (0-90 %), sin tocar la transparencia.
+        val barraOsc = Barra(this, sel, aj.oscuridad * 100 / 90)
+        fun ponerOscuridad(v: Int, f: Fila) {
+            aj.oscuridad = v.coerceIn(0, 90); Tema.oscuridad = aj.oscuridad
+            barraOsc.valor = aj.oscuridad * 100 / 90; f.valor.text = "${aj.oscuridad}%"
+            panel.background = Vidrio.fondo(this)
+        }
+        val filaOsc = nueva("oscuridad", "Oscuridad de los menús", "${aj.oscuridad}%", barraOsc) { f ->
+            ponerOscuridad(if (aj.oscuridad >= 90) 0 else aj.oscuridad + 10, f)
+        }
+        filaOsc.setOnKeyListener { _, code, ev ->
+            if (code != KeyEvent.KEYCODE_DPAD_LEFT && code != KeyEvent.KEYCODE_DPAD_RIGHT) return@setOnKeyListener false
+            if (ev.action == KeyEvent.ACTION_DOWN) ponerOscuridad(aj.oscuridad + if (code == KeyEvent.KEYCODE_DPAD_RIGHT) 10 else -10, filaOsc)
             true
         }
         opciones("salva", "Salvapantallas", minutos(Ajustes.MINUTOS_SALVA), Ajustes.MINUTOS_SALVA.indexOf(aj.salvaMin)) { i ->
@@ -1015,6 +1032,39 @@ class MainActivity : Activity() {
         panel.addView(g, filaLp())
         dialogo = Vidrio.dialogo(this, panel, aj)
         (g.getChildAt(aj.tvFuente * 2) ?: g.getChildAt(0))?.requestFocus()
+    }
+
+    /** «Recibir fondos»: mientras está abierta, la TV atiende en su dirección y lo recibido se puede poner de fondo. */
+    private fun abrirRecibir() {
+        val sel = aj.colorSel
+        val panel = Vidrio.panel(this, "Recibir fondos", dp(460))
+        val estado = nota("Esperando archivos…")
+        val r = Recibidor(this) { e ->
+            when (e) {
+                is Recibidor.Evento.Recibido -> estado.text = "Recibido: ${e.nombre}. Ya está en la lista de fondos."
+                is Recibidor.Evento.Poner -> { aj.fondo = e.clave; fondo.mostrar(e.clave); estado.text = "Puesto de fondo: ${nombreFondo(e.clave)}" }
+                is Recibidor.Evento.Borrado -> if (aj.fondo == e.clave) { aj.fondo = ""; fondo.mostrar("") }
+            }
+        }
+        val dir = r.direccion
+        panel.addView(nota(if (dir != null) "En el navegador del móvil o del ordenador, conectado a la misma wifi, abre:" else "La TV no tiene red: conéctala a la wifi o por cable."))
+        if (dir != null) panel.addView(TextView(this).apply {
+            text = dir
+            textSize = 22f
+            setTextColor(Color.WHITE)
+            setPadding(dp(12), dp(10), dp(12), dp(4))
+        }.conFuente(medio = true))
+        panel.addView(nota("Imágenes (webp, jpg, png, gif), vídeos (mp4, webm, mkv) o HTML5; un HTML5 con imágenes propias, en un .zip con su index.html. Desde esa página también puedes ponerlos de fondo o borrarlos. Solo funciona mientras esta pantalla esté abierta."))
+        panel.addView(estado)
+        val g = grupo()
+        val cerrar = Fila(this, "Cerrar", sel)
+        anadirAGrupo(g, cerrar)
+        panel.addView(g, filaLp().apply { topMargin = dp(14) })
+        val dl = Vidrio.dialogo(this, panel, aj)
+        cerrar.setOnClickListener { dl.dismiss() }
+        dl.setOnDismissListener { r.parar() }
+        r.empezar()
+        cerrar.requestFocus()
     }
 
     /** Grupo de filas con fondo redondeado, como las tarjetas de ajustes del iPhone. */

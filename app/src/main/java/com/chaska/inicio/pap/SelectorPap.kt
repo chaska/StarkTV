@@ -34,6 +34,7 @@ class SelectorPap : Activity() {
         Fuentes.actual = aj.fuente
         Tema.color = aj.colorSel
         Tema.opacidad = aj.opacidad
+        Tema.oscuridad = aj.oscuridad
         ops = Pap.opciones(this)
         elegida[0] = ops.indexOfFirst { it.first == aj.papIzq }.coerceAtLeast(0)
         elegida[1] = ops.indexOfFirst { it.first == aj.papDer }.coerceAtLeast(0)
