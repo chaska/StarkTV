@@ -96,6 +96,9 @@ class Ajustes(ctx: Context) {
             "Blanco" to 0xFFFFFFFF.toInt(),
             "Azul" to 0xFF4FA3F7.toInt(),
             "Verde" to 0xFF3CCB8F.toInt(),
+            "Rojo" to 0xFFE5484D.toInt(),
+            "Marrón" to 0xFFB07A4F.toInt(),
+            "Violeta" to 0xFFA77BF3.toInt(),
         )
         val TAMANOS = listOf("Micro", "Pequeño", "Mediano", "Grande")
         val POSICIONES = listOf("Abajo", "Centro", "Arriba", "Izquierda", "Centro vertical", "Derecha")
