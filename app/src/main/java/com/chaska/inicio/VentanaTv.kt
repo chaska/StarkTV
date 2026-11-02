@@ -127,6 +127,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
                     TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING -> "Sintonizando…"
                     TvInputManager.VIDEO_UNAVAILABLE_REASON_WEAK_SIGNAL -> "Sin señal"
                     TvInputManager.VIDEO_UNAVAILABLE_REASON_BUFFERING -> "Cargando…"
+                    TvInputManager.VIDEO_UNAVAILABLE_REASON_AUDIO_ONLY -> "Radio · solo sonido"
                     else -> "Sin imagen"
                 }
             }
@@ -300,8 +301,15 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         s(r)
     }
 
-    /** La lista propia guardada (filas del sistema en el orden elegido). Vacía si no se ha buscado. */
-    fun propios(): List<Long> = (prefs.getString(K_PROPIOS, "") ?: "").split(',').mapNotNull { it.toLongOrNull() }
+    /** La lista propia guardada (filas del sistema en el orden elegido) y, si se quiere, las radios detrás. */
+    fun propios(): List<Long> = filas(K_PROPIOS) + if (conRadios()) radios() else emptyList()
+
+    private fun filas(k: String) = (prefs.getString(k, "") ?: "").split(',').mapNotNull { it.toLongOrNull() }
+
+    /** Las radios encontradas (en el orden de la app de TV si se sabe). */
+    fun radios(): List<Long> = filas(K_RADIOS)
+    fun conRadios() = prefs.getBoolean(K_CON_RADIOS, false)
+    fun ponerRadios(si: Boolean) = prefs.edit().putBoolean(K_CON_RADIOS, si).apply()
 
     fun guardarPropios(l: List<Long>) = prefs.edit().putString(K_PROPIOS, l.joinToString(",")).apply()
 
@@ -335,6 +343,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         buscando = true
         val inicio = prefs.getLong("tv_id", 1533).coerceAtLeast(1)
         val vistos = sortedSetOf<Long>()
+        val radiosVistas = sortedSetOf<Long>()
         val nums = mutableMapOf<Long, Int>()
         try { context.registerReceiver(avisoNumero, android.content.IntentFilter(AVISO_MTK), Context.RECEIVER_EXPORTED) } catch (e: Exception) { }
         var subiendo = true
@@ -347,17 +356,20 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
                 try { context.unregisterReceiver(avisoNumero) } catch (e: Exception) { }
                 // Con número (MediaTek), en el mismo orden que la app de TV; si no, en el orden encontrado.
                 val l = vistos.sortedWith(compareBy({ nums[it] ?: Int.MAX_VALUE }, { it }))
+                val rs = radiosVistas.sortedWith(compareBy({ nums[it] ?: Int.MAX_VALUE }, { it }))
                 if (l.isNotEmpty()) {
                     guardarPropios(l)
+                    prefs.edit().putString(K_RADIOS, rs.joinToString(",")).apply()
                     prefs.edit().putString(K_NUMEROS, nums.entries.joinToString(",") { "${it.key}:${it.value}" }).apply()
                 }
-                Log.i(TAG, "búsqueda de canales: ${l.size} canales, ${nums.size} con número")
+                Log.i(TAG, "búsqueda de canales: ${l.size} canales y ${rs.size} radios, ${nums.size} con número")
                 return fin(l)
             }
             estado.visibility = View.VISIBLE
             estado.text = "Probando $id…"
             sonda = { r ->
                 if (r == 1) vistos += id
+                if (r == 0) radiosVistas += id
                 fallos = if (r >= 0) 0 else fallos + 1
                 avanza(id, vistos.size)
                 val seguir = Runnable { numeroVisto = null; probar(if (subiendo) id + 1 else id - 1) }
@@ -373,7 +385,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
                         post { if (n != null) nums[id] = n; probar(if (subiendo) id + 1 else id - 1) }
                     }.start()
                 }
-                if (r == 1) {
+                if (r >= 0) {
                     // Se espera el aviso de MediaTek con su número de canal (1,5 s no siempre bastaba: 15 de 33).
                     numeroVisto = { n -> nums[id] = n; removeCallbacks(delRegistro); post(seguir) }
                     postDelayed(delRegistro, 3000)
@@ -404,6 +416,8 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         const val TAG = "InicioTV"
         const val K_PROPIOS = "canales_propios"
         const val K_NUMEROS = "canales_numeros"
+        const val K_RADIOS = "canales_radios"
+        const val K_CON_RADIOS = "canales_con_radios"
         /** Último canal visto en la TV (número de la app de TV), según los avisos de MediaTek. */
         const val K_ULTIMO = "tv_ultimo_numero"
         /** MediaTek anuncia cada cambio de canal con channel_id = número de canal × 2^18 + 129 (visto en la Thomson). */

@@ -1335,9 +1335,19 @@ class MainActivity : Activity() {
                 return
             }
             cuerpo.addView(nota(if (nums.isNotEmpty()) "En el mismo orden y con el número de la app de TV. OK: verlo aquí." else "En el orden en que se encontraron. OK: verlo aquí."))
+            val radios = vista.radios()
+            if (radios.isNotEmpty()) {
+                val sw = Interruptor(this, vista.conRadios())
+                val fr = Fila(this, "Incluir las radios · ${radios.size}", aj.colorSel)
+                fr.valor.text = "Al final, como en la TV"
+                fr.accesorio = sw
+                fr.setOnClickListener { vista.ponerRadios(!vista.conRadios()); pintar() }
+                cuerpo.addView(fr)
+            }
             l.forEachIndexed { i, fila ->
                 // Con números de la TV (MediaTek), el que falte sale como «?»; sin ninguno (otras marcas), 1, 2, 3…
-                val f = Fila(this, "Canal ${nums[fila] ?: if (nums.isEmpty()) "${i + 1}" else "?"}", aj.colorSel)
+                val tipo = if (fila in radios) "Radio" else "Canal"
+                val f = Fila(this, "$tipo ${nums[fila] ?: if (nums.isEmpty()) "${i + 1}" else "?"}", aj.colorSel)
                 f.valor.text = "fila $fila"
                 f.setOnClickListener { vista.verFila(fila) }
                 cuerpo.addView(f)
