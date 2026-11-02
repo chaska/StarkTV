@@ -302,6 +302,7 @@ class MainActivity : Activity() {
         scroll.clipChildren = false
         scroll.clipToPadding = false
         scroll.isFocusable = false
+        scroll.viewTreeObserver.addOnScrollChangedListener { luces.seguir() }
         scroll.addView(fila)
         val zona = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false }
         zona.addView(titulo, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -525,7 +526,7 @@ class MainActivity : Activity() {
         // Las fichas llevan margen interno para el halo; en vertical, además, el nombre va debajo.
         val sep = dp(if (v) 12 else 18) - 2 * dp(Ficha.margen(aj.tamano)) + if (v && aj.nombres) dp(24) else 0
         fun anadir(f: Ficha) {
-            f.alEnfocar = { x -> x.postDelayed({ apuntarLuz(x, x.color, x.pivotX, x.pivotY) }, 120) }
+            f.alEnfocar = { x -> apuntarLuz(x, x.color, x.pivotX, x.pivotY) }
             fila.addView(f, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 if (fila.childCount > 0) { if (v) topMargin = sep else marginStart = sep }
                 // En vertical, la casa y Favoritos (más estrechas) van centradas en la columna, no a la izquierda.
@@ -567,10 +568,9 @@ class MainActivity : Activity() {
     }
 
     private fun apuntarLuz(v: View, color: Int, cx: Float, cy: Float) {
-        val loc = IntArray(2)
-        v.getLocationInWindow(loc)
         // La luz de fondo, vez y media lo enfocado: con fichas micro, pequeña; con grandes, amplia.
-        luces.apuntar(loc[0] + cx, loc[1] + cy, color, v.width * 1.5f)
+        // Sale en el mismo momento que la ficha crece y la acompaña mientras el dock se desplaza.
+        luces.apuntar(v, cx, cy, color, v.width * 1.5f)
     }
 
     // ---------- Acciones ----------

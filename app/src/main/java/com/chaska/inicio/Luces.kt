@@ -15,7 +15,9 @@ import android.view.animation.DecelerateInterpolator
 /**
  * Iluminación encima del fondo: un foco frío arriba a la izquierda, uno cálido a la derecha,
  * el suelo en penumbra, la viñeta de los bordes y un foco del color de la app activa que la sigue.
- * Solo se repinta cuando el foco se mueve (450 ms), no en cada fotograma.
+ * Solo se repinta cuando el foco se mueve, no en cada fotograma. El foco de color va pegado a la ficha:
+ * sale a la vez que ella crece (mismos 280 ms) y en cada fotograma mira dónde está, así acompaña
+ * también al dock cuando se desplaza.
  */
 class Luces(ctx: Context) : View(ctx) {
     private var x = -1f
@@ -26,24 +28,48 @@ class Luces(ctx: Context) : View(ctx) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val mezcla = ArgbEvaluator()
 
-    /** Lleva el foco de color a (nx, ny); [nr] es su radio, en proporción a lo enfocado. */
-    fun apuntar(nx: Float, ny: Float, nc: Int, nr: Float) {
+    private var objetivo: View? = null
+    private var ox = 0f
+    private var oy = 0f
+    private val loc = IntArray(2)
+    private val yo = IntArray(2)
+
+    /** Dónde está ahora el punto (ox, oy) de lo enfocado, en coordenadas de esta capa. */
+    private fun destino(): Pair<Float, Float>? {
+        val v = objetivo ?: return null
+        if (!v.isAttachedToWindow) return null
+        v.getLocationInWindow(loc); getLocationInWindow(yo)
+        return (loc[0] - yo[0] + ox) to (loc[1] - yo[1] + oy)
+    }
+
+    /** Lleva el foco de color a [v] (al punto cx, cy de la ficha); [nr] es su radio, en proporción a lo enfocado. */
+    fun apuntar(v: View, cx: Float, cy: Float, nc: Int, nr: Float) {
         anim?.cancel()
+        objetivo = v; ox = cx; oy = cy
+        val (nx, ny) = destino() ?: return
         if (x < 0) { x = nx; y = ny; color = nc; radio = nr; invalidate(); return }
         val x0 = x; val y0 = y; val c0 = color; val r0 = radio
         anim = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 450
+            duration = 280
             interpolator = DecelerateInterpolator(2f)
             addUpdateListener {
                 val t = it.animatedFraction
-                x = x0 + (nx - x0) * t
-                y = y0 + (ny - y0) * t
+                val (dx, dy) = destino() ?: (nx to ny)
+                x = x0 + (dx - x0) * t
+                y = y0 + (dy - y0) * t
                 radio = r0 + (nr - r0) * t
                 color = mezcla.evaluate(t, c0, nc) as Int
                 invalidate()
             }
             start()
         }
+    }
+
+    /** El dock se ha desplazado: el foco va con la ficha, sin esperar. */
+    fun seguir() {
+        if (anim?.isRunning == true) return             // la animación ya mira dónde está en cada fotograma
+        val (nx, ny) = destino() ?: return
+        if (nx != x || ny != y) { x = nx; y = ny; invalidate() }
     }
 
     override fun onDetachedFromWindow() {
