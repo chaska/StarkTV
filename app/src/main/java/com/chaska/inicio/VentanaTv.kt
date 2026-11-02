@@ -55,6 +55,14 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
     private var intento = 0
     private val siguiente = Runnable { probarSinCanal() }
     private val vigia = Runnable { if (estado.visibility == View.VISIBLE) otroIntento() }
+    /** Ya hubo imagen y se perdió (en el PAP, otra app que reproduce vídeo se queda la vía de vídeo del chip). */
+    private var tuvoImagen = false
+    private var recuperaciones = 0
+    private val recuperar = Runnable {
+        if (estado.visibility != View.VISIBLE) return@Runnable
+        Log.i(TAG, "se perdió la imagen: se vuelve a sintonizar (${recuperaciones}/$MAX_RECUPERAR)")
+        if (canales.isNotEmpty()) sintonizar() else if (entrada != null) { intento = 0; probarSinCanal() }
+    }
 
     init {
         isFocusable = true
@@ -81,12 +89,19 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         tv.setCallback(object : TvView.TvInputCallback() {
             override fun onVideoAvailable(inputId: String) {
                 Log.i(TAG, "imagen disponible en $inputId")
+                tuvoImagen = true; recuperaciones = 0
                 removeCallbacks(vigia)
                 estado.visibility = View.GONE
             }
             override fun onVideoUnavailable(inputId: String, reason: Int) {
                 Log.i(TAG, "sin imagen en $inputId, motivo $reason")
                 estado.visibility = View.VISIBLE
+                // Se ha quedado sin imagen después de tenerla: se vuelve a pedir, que el chip puede dar la otra vía
+                // (en el PAP con YouTube reproduciendo, 02/11). Pocas veces, para no quedarse en bucle.
+                if (tuvoImagen && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING && recuperaciones < MAX_RECUPERAR) {
+                    recuperaciones++
+                    removeCallbacks(recuperar); postDelayed(recuperar, 2000)
+                }
                 estado.text = when (reason) {
                     TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING -> "Sintonizando…"
                     TvInputManager.VIDEO_UNAVAILABLE_REASON_WEAK_SIGNAL -> "Sin señal"
@@ -145,6 +160,8 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
     }
 
     fun apagar() {
+        removeCallbacks(recuperar)
+        tuvoImagen = false; recuperaciones = 0
         removeCallbacks(siguiente)
         removeCallbacks(vigia)
         try { tv.reset() } catch (e: Exception) { }
@@ -229,5 +246,8 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         post(siguiente)
     }
 
-    companion object { const val TAG = "InicioTV" }
+    companion object {
+        const val TAG = "InicioTV"
+        private const val MAX_RECUPERAR = 3
+    }
 }
