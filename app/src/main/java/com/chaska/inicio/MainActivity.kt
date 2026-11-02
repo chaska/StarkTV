@@ -117,6 +117,8 @@ class MainActivity : Activity() {
         // Una vez por arranque: reponer por adb los ajustes que la TV pierde al reiniciar.
         if (!ajustesRepuestos) { ajustesRepuestos = true; Adb.reponerAjustes(this); com.chaska.inicio.pap.Pap.recoger(this) }
         Sobran.repasar(this)                               // «Apps que sobran»: como mucho cada 10 minutos
+        // Se ha vuelto al inicio con el PAP a medias (otra tecla, otra app): se cierra del todo para que no siga sonando.
+        if (aj.papActivo && !com.chaska.inicio.pap.FondoPap.visible) com.chaska.inicio.pap.Pap.cerrar(this, aj, irAlInicio = false)
         swPorDefecto?.encendido = esPorDefecto()
         aplicar()
         fondo.mostrar(aj.fondo)

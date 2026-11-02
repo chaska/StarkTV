@@ -93,9 +93,9 @@ class Teclas : AccessibilityService() {
             }
             return true
         }
+        // Inicio en el PAP: se sale del PAP y se cierran sus apps (el selector va con la tuerca o la estrella).
         if (e.keyCode == KeyEvent.KEYCODE_HOME && Pap.activo(Ajustes(this))) {
-            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) { largo = true; despues { Pap.cerrar(this, Ajustes(this)) } }
-            if (e.action == KeyEvent.ACTION_UP) { if (!largo) despues { Pap.selector(this) }; largo = false }
+            if (e.action == KeyEvent.ACTION_UP) despues { Pap.cerrar(this, Ajustes(this)) }
             return true
         }
         if (e.keyCode !in TECLAS_AJUSTES) return false

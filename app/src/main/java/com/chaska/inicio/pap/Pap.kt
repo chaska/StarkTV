@@ -294,7 +294,7 @@ object Pap {
      * Cierra el PAP del todo: las ventanas de las apps de cada parte (por adb), los visores de TV,
      * el fondo y el selector; y vuelve al launcher. Así la próxima vez esas apps se abren a pantalla completa.
      */
-    fun cerrar(ctx: Context, aj: Ajustes) {
+    fun cerrar(ctx: Context, aj: Ajustes, irAlInicio: Boolean = true) {
         aj.papActivo = false
         tanda++                                       // para el colocador si seguía en marcha
         val apps = listOf(aj.papIzq, aj.papDer).filter { !it.startsWith(TV) && Adb.esPaquete(it) }
@@ -304,11 +304,20 @@ object Pap {
         SelectorPap.actual?.cerrar()
         val app = ctx.applicationContext
         apps.forEach { Adb.enSegundoPlano(app, "appops set $it PLAY_AUDIO allow") }      // devolverles el sonido
+        // Las apps del PAP se cierran de verdad: si no, seguían sonando detrás del inicio (TDTChannels, 02/11).
+        // Con adb, se quitan sus ventanas y se paran; sin adb, Android deja cerrar las que ya están en segundo plano.
         Thread {
-            Adb.tareas(app)?.filter { t -> t.modo == "freeform" && apps.any { t.afinidad.startsWith(it) } }
+            val con = Adb.tareas(app)
+            con?.filter { t -> t.modo == "freeform" && apps.any { t.afinidad.startsWith(it) } }
                 ?.forEach { Adb.shell(app, "am stack remove ${it.id}") }
+            if (con != null) apps.forEach { Adb.shell(app, "am force-stop $it") }
+            else {
+                Thread.sleep(1500)
+                val am = app.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                apps.forEach { try { am.killBackgroundProcesses(it) } catch (e: Exception) { Log.w(TAG, "PAP: no se pudo cerrar $it: $e") } }
+            }
         }.start()
-        ctx.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        if (irAlInicio) ctx.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     /** Opciones para abrir una app normal: pantalla completa aunque la última vez estuviera en el PAP. */
