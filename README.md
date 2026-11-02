@@ -28,7 +28,7 @@ funcionar lo básico; la ventanita de TV y el PAP dependen de cómo el fabricant
 
 ### Reloj, fecha y tiempo
 - Hora, fecha completa y **tiempo actual** de la ciudad que elijas, centrados en su bloque; posición automática o a un lado.
-- **Salvapantallas** a los minutos que elijas: reloj grande, fecha y tiempo sobre el fondo; cualquier tecla lo quita.
+- **Salvapantallas** a los minutos que elijas: reloj grande, fecha y tiempo sobre el fondo, que cambian de sitio cada 5 s (así no se marcan en la pantalla); cualquier tecla lo quita.
 
 ### Ventanita de TV
 - TV en directo dentro del inicio: **antena (TDT), HDMI 1-3 o AV**, en una esquina a elegir o automática; se aparta sola del dock.
@@ -36,16 +36,21 @@ funcionar lo básico; la ventanita de TV y el PAP dependen de cómo el fabricant
 - Sonido activable y **nombre del canal y la fuente ocultable**.
 
 ### PAP y PIP (dos cosas a la vez)
-- Dos apps o la TV y una app **una al lado de otra** o una **dentro de otra**, con varios repartos de pantalla.
+- Dos apps o la TV y una app **una al lado de otra** o una **dentro de otra**, con varios repartos de pantalla (50/50, 70/30, arriba y abajo, PIP en las 4 esquinas).
+- Fuentes: **Antena, HDMI 1-3, AV**, **YouTube (web)** (youtube.com/tv en una ventana propia, cae justo en su parte) y las apps instaladas que no estén ocultas en el dock. La misma app no se puede poner en las dos partes.
 - Se elige qué parte suena (una, la otra o las dos).
-- Se abre con la tecla de la tuerca del mando o desde el inicio; el selector deja cambiar cada parte, el sonido y el modo.
-- Necesita el permiso avanzado por adb (ver «Primera instalación»).
+- **Tuerca o estrella** del mando: selector (cambiar de parte, fuente, sonido y modo); mantenida, cierra el PAP. **Inicio**: sale del PAP y cierra sus apps.
+- Cada parte se abre ya con su tamaño, sin depuración. Con la depuración (adb), además se recolocan las apps que se abren a través de otra pantalla (como la app de YouTube) y se cierran del todo al salir.
+- Límites del chip de la TV (probado en la Thomson): la **antena y una app de vídeo** normal (TDTChannels…) van a la vez; la **app de YouTube** se queda la vía de vídeo de la antena y **dos apps de vídeo** no caben a la vez (solo hay un decodificador). Para TV + YouTube, «YouTube (web)».
+- Activar el modo de ventanas libres de Android (ver «Primera instalación»).
 
 ### Fondos
 - Incluidos: **Castillo** y **Santa's Day** (imágenes), **Humo** y **Partículas** (HTML5) y **Halloween - HTML5** (imagen con murciélagos que pasan por detrás del árbol, nubes, niebla, cascadas con agua en movimiento y las luces de calabazas, farolillos y castillo encendiéndose).
 - Propios: **imagen** (jpg, png, webp), **GIF animado**, **vídeo** (mp4, mkv, webm, mov; en bucle y sin sonido) y **HTML5**.
 - **Brillo** del fondo, **cambiar de fondo solo** cada cierto tiempo y mostrar u ocultar la versión sobre el fondo.
 - El fondo se destruye al salir del inicio: mientras ves otra app no gasta memoria ni gráfica.
+- **En reposo** (3 minutos sin tocar el mando) el fondo animado se queda quieto y no gasta procesador; los HTML5 de la app van a 30 fotogramas por segundo.
+- **Halloween**: cada 2-6 minutos, al azar, sale la Parca 5 segundos (también en reposo).
 
 ### Recibir fondos desde el móvil o el PC
 En *Ajustes › Launcher › Fondo › Recibir fondos desde el móvil o PC* la TV enseña una dirección y una **clave de 6 cifras nueva cada vez**.
@@ -63,6 +68,8 @@ Ver «Seguridad» más abajo.
 ### Ajustes
 - Ajustes al estilo iPhone, por pestañas (Fondo, Dock, Reloj, Pantalla, Efectos, PAP, Sistema), todo con el mando (◀ ▶ cambian los valores).
 - Acceso directo a los ajustes de la TV, apps ocultas y copia de seguridad de los ajustes.
+- **Estrella** del mando en el inicio: los favoritos de Stark TV (no los de Android).
+- **Apps que sobran** (*Sistema*): las apps de esa TV que se pueden desactivar (anuncios, canales FAST, menús de fábrica, informes…), explicadas en español, con interruptor (encendido = funcionando) y «Volver a activar todas». Stark TV las vuelve a desactivar al encender y cuando Google Play las actualiza. Necesita la depuración.
 
 ## Seguridad
 
