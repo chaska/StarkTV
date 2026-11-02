@@ -109,7 +109,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
                 estado.visibility = View.VISIBLE
                 // Sin imagen después de tenerla: otra app con vídeo (YouTube) se ha quedado el sintonizador principal.
                 // Se prueba una vez el segundo (02/11: volver al principal era un tira y afloja con YouTube).
-                if (tuvoImagen && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING && recuperaciones < MAX_RECUPERAR) {
+                if (RECUPERAR && tuvoImagen && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING && recuperaciones < MAX_RECUPERAR) {
                     recuperaciones++
                     removeCallbacks(recuperar); postDelayed(recuperar, 2000)
                 }
@@ -260,5 +260,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
     companion object {
         const val TAG = "InicioTV"
         private const val MAX_RECUPERAR = 2
+        /** Apagado (02/11): volver a sintonizar al perder la imagen le quitaba el vídeo a la app de la otra parte del PAP. */
+        private const val RECUPERAR = false
     }
 }
