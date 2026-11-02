@@ -21,6 +21,23 @@ window.requestAnimationFrame=function(cb){return raf(function paso(t){if(t-ultim
   #escena { position: fixed; inset: 0; will-change: transform; }
   #bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  /* La Parca: sale de golpe cada pocos minutos (al azar), se queda 5 s y se va. */
+  #parca { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0;
+           pointer-events: none; transform: scale(.55); filter: drop-shadow(0 0 28px rgba(0, 0, 0, .9)); }   /* negra: disimula el borde del recorte */
+  #parca.sale { animation: parca 5.6s ease-out forwards; }
+  @keyframes parca {
+    0%   { opacity: 0; transform: scale(.55); }
+    4%   { opacity: 1; transform: scale(1.12); }
+    9%   { transform: scale(1); }
+    90%  { opacity: 1; transform: scale(1.02); }
+    100% { opacity: 0; transform: scale(1.05); }
+  }
+  #susto { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+  #susto.sale { animation: susto 5.6s ease-out forwards; }
+  @keyframes susto { 0% { opacity: 0; } 4% { opacity: .55; } 90% { opacity: .55; } 100% { opacity: 0; } }
+  #escena.tiembla { animation: tiembla .35s linear 2; }
+  @keyframes tiembla { 0%,100% { transform: translate(0,0); } 25% { transform: translate(-6px,3px); }
+                       50% { transform: translate(5px,-4px); } 75% { transform: translate(-3px,-2px); } }
 </style>
 </head>
 <body>
@@ -29,6 +46,8 @@ window.requestAnimationFrame=function(cb){return raf(function paso(t){if(t-ultim
   <canvas id="fx"></canvas>
   <canvas id="arbol"></canvas>
   <canvas id="luz"></canvas>
+  <div id="susto"></div>
+  <img id="parca" src="halloween/parca.webp" alt="">
 </div>
 <script>
 const IW = 1672, IH = 941, FPS = 30;
@@ -233,6 +252,18 @@ function empezar() {
   requestAnimationFrame(fotograma);
 }
 if (bg.complete && bg.naturalWidth) empezar(); else bg.onload = empezar;
+
+// La Parca: sale de golpe 5 segundos. Cuándo (cada 2-6 minutos, al azar) lo decide Stark TV, que llama a
+// starkParca() también con el fondo en reposo. Abierto en un navegador normal, se lanza solo.
+(function () {
+  var parca = document.getElementById('parca'), susto = document.getElementById('susto'), escena = document.getElementById('escena');
+  window.starkParca = function () {
+    [parca, susto, escena].forEach(function (e) { e.classList.remove('sale', 'tiembla'); void e.offsetWidth; });
+    parca.classList.add('sale'); susto.classList.add('sale'); escena.classList.add('tiembla');
+    setTimeout(function () { parca.classList.remove('sale'); susto.classList.remove('sale'); escena.classList.remove('tiembla'); }, 5700);
+  };
+  if (!/StarkTV/.test(navigator.userAgent)) (function vez() { setTimeout(function () { starkParca(); vez(); }, 120000 + Math.random() * 240000); })();
+})();
 </script>
 </body>
 </html>

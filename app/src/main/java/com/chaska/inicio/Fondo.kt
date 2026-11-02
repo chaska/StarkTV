@@ -126,9 +126,32 @@ class Fondo(private val ctx: Context, private val capa: FrameLayout) {
     }
 
     private var pausado = false
+    private val reloj = android.os.Handler(android.os.Looper.getMainLooper())
 
     /**
-     * Sin tocar el mando un rato, el fondo animado (HTML5, vídeo o GIF) se queda quieto: en la Thomson el HTML5
+     * Fondos con susto (Halloween: la Parca): cada 2-6 minutos, al azar, se despierta el fondo si estaba en reposo,
+     * se llama a starkParca() y a los 6 s vuelve a quedarse quieto. Así sale también cuando nadie toca el mando.
+     */
+    private val susto = object : Runnable {
+        override fun run() {
+            val w = web ?: return
+            val estaba = pausado
+            if (estaba) { w.resumeTimers(); w.onResume() }
+            w.evaluateJavascript("window.starkParca && starkParca()", null)
+            if (estaba) reloj.postDelayed({ if (pausado && web === w) { w.onPause(); w.pauseTimers() } }, 6000)
+            programarSusto()
+        }
+    }
+
+    /** [primero]: la primera vez sale antes (30-90 s), luego cada 2-6 minutos. */
+    private fun programarSusto(primero: Boolean = false) {
+        reloj.removeCallbacks(susto)
+        val espera = if (primero) 30_000L + (Math.random() * 60_000).toLong() else 120_000L + (Math.random() * 240_000).toLong()
+        reloj.postDelayed(susto, espera)
+    }
+
+    /**
+     * Sin tocar el mando 3 minutos, el fondo animado (HTML5, vídeo o GIF) se queda quieto: en la Thomson el HTML5
      * gastaba más de un núcleo entero sin parar con el inicio en reposo (02/11). Vuelve con la primera tecla.
      */
     fun pausar() {
@@ -149,6 +172,7 @@ class Fondo(private val ctx: Context, private val capa: FrameLayout) {
 
     fun liberar() {
         pausado = false
+        reloj.removeCallbacks(susto)
         animada?.stop(); animada = null
         reproductor?.release(); reproductor = null
         web?.apply { stopLoading(); loadUrl("about:blank"); removeAllViews(); destroy() }
@@ -246,8 +270,11 @@ class Fondo(private val ctx: Context, private val capa: FrameLayout) {
             @Suppress("DEPRECATION")
             settings.allowUniversalAccessFromFileURLs = propio
             webViewClient = if (propio) WebViewClient() else Encerrado(carpeta)
+            // Para que los fondos de la app sepan que el reloj de sus sustos lo lleva Stark TV.
+            if (propio) settings.userAgentString = settings.userAgentString + " StarkTV"
         }
         web = w
+        if (c == "asset:halloween.html") programarSusto(primero = true)
         capa.addView(w, lleno())
         w.loadUrl(
             if (c.startsWith("asset:")) "file:///android_asset/fondos/" + c.removePrefix("asset:")

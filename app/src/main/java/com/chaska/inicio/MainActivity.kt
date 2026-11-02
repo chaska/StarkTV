@@ -1388,7 +1388,7 @@ class MainActivity : Activity() {
     companion object {
         const val EXTRA_AJUSTES = "abrir_ajustes"
         /** Tiempo sin tocar el mando para que el fondo animado se quede quieto. */
-        private const val REPOSO_FONDO_MS = 60_000L
+        private const val REPOSO_FONDO_MS = 3 * 60_000L
         const val EXTRA_FAVORITOS = "abrir_favoritos"
         /** El inicio de Stark TV está en pantalla. */
         @Volatile var enInicio = false
