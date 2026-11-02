@@ -121,6 +121,7 @@ class SelectorPap private constructor(private val ctx: Context) {
         if (i == Pap.REPARTOS.size) {
             aj.papIzq = aj.papDer.also { aj.papDer = aj.papIzq }
             Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
+            VisorWeb.abiertos.toList().forEach { it.finishAndRemoveTask() }
             cerrar()
             Pap.lanzar(ctx, aj, aj.papParte, cambio = true)
             return
@@ -194,8 +195,8 @@ class SelectorPap private constructor(private val ctx: Context) {
         val antes = if (parte == 1) aj.papIzq else aj.papDer
         if (clave != antes) {
             if (parte == 1) aj.papIzq = clave else aj.papDer = clave
-            Visor.abiertos.filter { (parte == 1 && it is VisorIzq) || (parte == 2 && it is VisorDer) }
-                .forEach { it.finishAndRemoveTask() }
+            Visor.abiertos.filter { it.parte == parte }.forEach { it.finishAndRemoveTask() }
+            VisorWeb.abiertos.filter { it.parte == parte }.forEach { it.finishAndRemoveTask() }
         }
         volver(parte, cambio = clave != antes)
     }

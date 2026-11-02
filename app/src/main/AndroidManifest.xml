@@ -106,5 +106,22 @@
             android:launchMode="singleTask"
             android:resizeableActivity="true"
             android:taskAffinity="com.chaska.inicio.pap2" />
+        <!-- YouTube (web) en el PAP: youtube.com/tv en una ventana propia, una por parte. -->
+        <activity
+            android:name=".pap.VisorWebIzq"
+            android:configChanges="density|keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:taskAffinity="com.chaska.inicio.papweb1" />
+        <activity
+            android:name=".pap.VisorWebDer"
+            android:configChanges="density|keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:taskAffinity="com.chaska.inicio.papweb2" />
     </application>
 </manifest>

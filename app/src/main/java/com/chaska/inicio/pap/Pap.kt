@@ -17,6 +17,8 @@ import android.util.Log
  */
 object Pap {
     private const val TV = "tv:"
+    /** youtube.com/tv en una ventana de Stark TV (ver [VisorWeb]). */
+    const val YOUTUBE_WEB = "web:youtube"
     private const val MODO_PANTALLA_COMPLETA = 1
     private const val MODO_VENTANA = 5
 
@@ -26,13 +28,14 @@ object Pap {
     /** 4-7: PIP. La parte 1 a pantalla completa y la 2 en una ventana pequeña en la esquina. */
     fun esPip(reparto: Int) = reparto >= 4
 
-    /** Lo que se puede poner en una parte: las fuentes de TV y todas las apps. */
+    /** Lo que se puede poner en una parte: las fuentes de TV, YouTube (web) y todas las apps. */
     fun opciones(ctx: Context): List<Pair<String, String>> =
-        Ajustes.FUENTES_TV.mapIndexed { i, n -> "$TV$i" to n } +
+        Ajustes.FUENTES_TV.mapIndexed { i, n -> "$TV$i" to n } + listOf(YOUTUBE_WEB to "YouTube (web)") +
             Apps.todas(ctx).map { it to Apps.nombre(ctx, it) }.sortedBy { it.second.lowercase() }
 
     fun nombre(ctx: Context, clave: String): String =
-        if (clave.startsWith(TV)) Ajustes.FUENTES_TV.getOrElse(clave.removePrefix(TV).toIntOrNull() ?: 0) { "TV" }
+        if (clave == YOUTUBE_WEB) "YouTube (web)"
+        else if (clave.startsWith(TV)) Ajustes.FUENTES_TV.getOrElse(clave.removePrefix(TV).toIntOrNull() ?: 0) { "TV" }
         else Apps.nombre(ctx, clave)
 
     /** Límites de la parte 1 (izquierda o arriba) y la parte 2 según el reparto. */
@@ -95,11 +98,11 @@ object Pap {
         // Android corre 80 px una ventana libre si cae en el sitio exacto de otra (aunque esté oculta,
         // p. ej. de un PAP anterior). Al empezar de cero se cierran nuestros visores y se desplaza 0-2 px.
         // Al cambiar lo que va en una parte, la nueva ventana caería donde la vieja: también se desplaza.
-        if (nuevo) Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
+        if (nuevo) { Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }; VisorWeb.abiertos.toList().forEach { it.finishAndRemoveTask() } }
         if (nuevo || cambio) aj.p.edit().putInt("pap_n", (aj.p.getInt("pap_n", 0) + 1) % 3).apply()
         val d = aj.p.getInt("pap_n", 0)
         r1.left += d; r2.left += d
-        val partes = listOf(Triple(aj.papIzq, r1, VisorIzq::class.java), Triple(aj.papDer, r2, VisorDer::class.java))
+        val partes = listOf(Triple(aj.papIzq, r1, 1), Triple(aj.papDer, r2, 2))
         // Debajo de todo, el fondo negro del PAP (a pantalla completa): tapa el launcher.
         try {
             act.startActivity(Intent(act, FondoPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), opciones(null, MODO_PANTALLA_COMPLETA))
@@ -111,11 +114,14 @@ object Pap {
         aj.papParte = manejar
         lanzadoEnEsteProceso = true
         for (i in orden) {
-            val (clave, rect, visor) = partes[i]
-            val intent = if (clave.startsWith(TV))
-                Intent(act, visor).putExtra(Visor.EXTRA_FUENTE, clave.removePrefix(TV).toIntOrNull() ?: 0)
+            val (clave, rect, parte) = partes[i]
+            val intent = when {
+                clave.startsWith(TV) -> Intent(act, if (parte == 1) VisorIzq::class.java else VisorDer::class.java)
+                    .putExtra(Visor.EXTRA_FUENTE, clave.removePrefix(TV).toIntOrNull() ?: 0).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                clave == YOUTUBE_WEB -> Intent(act, if (parte == 1) VisorWebIzq::class.java else VisorWebDer::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            else Apps.intentDe(act, clave) ?: continue
+                else -> Apps.intentDe(act, clave) ?: continue
+            }
             try { act.startActivity(intent, opciones(rect, MODO_VENTANA)) }
             catch (e: Exception) { Log.w(TAG, "PAP: no se pudo abrir $clave: $e") }
         }
@@ -141,14 +147,11 @@ object Pap {
         Thread {
             val fin = android.os.SystemClock.uptimeMillis() + 30_000
             var activaDelante = false
-            var avisado = false
             while (android.os.SystemClock.uptimeMillis() < fin && mia == tanda && aj.papActivo) {
-                // Sin adb (recién encendida la TV tarda en estar lista) se reintenta hasta el final; se avisa una vez.
+                // Sin depuración no hace falta: las partes ya se abren con su tamaño. Si la hay (o tarda en estar
+                // lista tras encender la TV), se reintenta y se recoloca la app que se haya ido a otro sitio.
                 val lista = Adb.tareas(ctx)
-                if (lista == null) {
-                    if (!avisado) { avisado = true; principal.post { avisoSinAdb(ctx) } }
-                    Thread.sleep(1000); continue
-                }
+                if (lista == null) { Thread.sleep(1000); continue }
                 for ((busca, rect) in objetivos) {
                     val (afinidad, exacta) = busca
                     lista.filter { it.visible && it.modo == "freeform" && (if (exacta) it.afinidad == afinidad else it.afinidad.startsWith(afinidad)) }
@@ -167,9 +170,6 @@ object Pap {
             }
         }.start()
     }
-
-    private fun avisoSinAdb(ctx: Context) = android.widget.Toast.makeText(ctx,
-        "PAP: la depuración de la TV no responde; las ventanas se colocarán cuando responda", android.widget.Toast.LENGTH_LONG).show()
 
     /**
      * Si Android cerró Stark TV con el PAP abierto (bloqueo, apagar y encender la TV), las apps del PAP
@@ -235,9 +235,11 @@ object Pap {
     }
 
     /** Qué tarea buscar para una parte: nuestro visor (afinidad exacta) o la app (afinidad que empieza por el paquete). */
-    fun busqueda(clave: String, parte: Int): Pair<String, Boolean> =
-        if (clave.startsWith(TV)) (if (parte == 1) "com.chaska.inicio.pap1" else "com.chaska.inicio.pap2") to true
-        else clave to false
+    fun busqueda(clave: String, parte: Int): Pair<String, Boolean> = when {
+        clave.startsWith(TV) -> (if (parte == 1) "com.chaska.inicio.pap1" else "com.chaska.inicio.pap2") to true
+        clave == YOUTUBE_WEB -> (if (parte == 1) "com.chaska.inicio.papweb1" else "com.chaska.inicio.papweb2") to true
+        else -> clave to false
+    }
 
     /** La tarea visible de más arriba que corresponde a esa búsqueda. */
     fun buscar(lista: List<Adb.Tarea>, b: Pair<String, Boolean>): Adb.Tarea? =
@@ -272,6 +274,7 @@ object Pap {
         tanda++                                       // para el colocador si seguía en marcha
         val apps = listOf(aj.papIzq, aj.papDer).filter { !it.startsWith(TV) && Adb.esPaquete(it) }
         Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
+        VisorWeb.abiertos.toList().forEach { it.finishAndRemoveTask() }
         FondoPap.actual?.finishAndRemoveTask()
         SelectorPap.actual?.cerrar()
         val app = ctx.applicationContext
