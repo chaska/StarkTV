@@ -17,6 +17,13 @@ import com.chaska.inicio.pap.SelectorPap
 class Teclas : AccessibilityService() {
     private var delante: String? = null
     private var largo = false
+    /**
+     * Android solo espera ~0,5 s a que el servicio diga si se queda la tecla; si tarda más, se la pasa a MediaTek
+     * (y sale su menú de imagen y sonido). Por eso aquí solo se decide y se contesta al momento: abrir el selector
+     * (que lee la lista de apps) o cerrar el PAP se hace justo después (02/11).
+     */
+    private val luego = android.os.Handler(android.os.Looper.getMainLooper())
+    private fun despues(accion: () -> Unit) { luego.post(accion) }
 
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) e.packageName?.toString()?.let { delante = it }
@@ -35,27 +42,30 @@ class Teclas : AccessibilityService() {
         // «todas las apps» y falla). Inicio corto abre el selector; mantenido, sale del PAP.
         // Selector del PAP abierto (no tiene foco, para no molestar a la app de debajo): las teclas van a él.
         val selector = SelectorPap.actual
-        if (selector != null && SelectorPap.visible && e.keyCode !in TECLAS_AJUSTES && e.keyCode !in TECLAS_SISTEMA)
-            return selector.tecla(e)
+        if (selector != null && SelectorPap.visible && e.keyCode !in TECLAS_AJUSTES && e.keyCode !in TECLAS_SISTEMA) {
+            val copia = KeyEvent(e)
+            despues { selector.tecla(copia) }
+            return true
+        }
         // Durante el PAP la tuerca cambia de parte (abre el selector) y mantenida cierra el PAP.
         // Es la tecla que llega siempre: Inicio no llega si una app tiene un vídeo a pantalla completa.
         if (e.keyCode in TECLAS_AJUSTES && Pap.activo(Ajustes(this))) {
-            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) { largo = true; Pap.cerrar(this, Ajustes(this)) }
+            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) { largo = true; despues { Pap.cerrar(this, Ajustes(this)) } }
             if (e.action == KeyEvent.ACTION_UP) {
-                if (!largo) { if (selector != null && SelectorPap.visible) selector.seguir() else Pap.selector(this) }
+                if (!largo) despues { val s = SelectorPap.actual; if (s != null && SelectorPap.visible) s.seguir() else Pap.selector(this) }
                 largo = false
             }
             return true
         }
         if (e.keyCode == KeyEvent.KEYCODE_HOME && Pap.activo(Ajustes(this))) {
-            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) { largo = true; Pap.cerrar(this, Ajustes(this)) }
-            if (e.action == KeyEvent.ACTION_UP) { if (!largo) Pap.selector(this); largo = false }
+            if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) { largo = true; despues { Pap.cerrar(this, Ajustes(this)) } }
+            if (e.action == KeyEvent.ACTION_UP) { if (!largo) despues { Pap.selector(this) }; largo = false }
             return true
         }
         if (e.keyCode !in TECLAS_AJUSTES) return false
         val nuestro = MainActivity.enInicio || delante == packageName || Pap.activo(Ajustes(this))
         if (!nuestro) return false
-        if (e.action == KeyEvent.ACTION_UP) {
+        if (e.action == KeyEvent.ACTION_UP) despues {
             startActivity(Intent(this, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .putExtra(MainActivity.EXTRA_AJUSTES, true))
