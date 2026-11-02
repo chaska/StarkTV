@@ -110,8 +110,15 @@ class FondoPap : Activity() {
         super.onDestroy()
     }
 
+    override fun onStart() { super.onStart(); visible = true }
+    override fun onStop() { visible = false; super.onStop() }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean =
         if (keyCode == KeyEvent.KEYCODE_BACK) true else super.onKeyDown(keyCode, event)
 
-    companion object { var actual: FondoPap? = null }
+    companion object {
+        var actual: FondoPap? = null
+        /** Se ve (está debajo de las partes). Si se fue al fondo, el PAP ya no está en pantalla. */
+        @Volatile var visible = false
+    }
 }

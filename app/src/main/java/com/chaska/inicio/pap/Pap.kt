@@ -249,8 +249,12 @@ object Pap {
         (ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).moveTaskToFront(id, 0)
     } catch (e: Exception) { Log.w(TAG, "PAP: no se pudo poner delante $id: $e") }
 
-    /** El PAP está en marcha de verdad (no basta el ajuste: tras reinstalar se queda «activo» sin ventanas). */
-    fun activo(aj: Ajustes) = aj.papActivo && FondoPap.actual != null
+    /**
+     * El PAP está en marcha de verdad y en pantalla. No basta el ajuste (tras reinstalar se queda «activo» sin
+     * ventanas) ni que exista el fondo: si se cerraron las partes o se volvió al inicio, el fondo queda escondido
+     * y al pulsar PAP salía solo el selector encima del launcher (02/11). Así se empieza uno nuevo.
+     */
+    fun activo(aj: Ajustes) = aj.papActivo && FondoPap.actual != null && FondoPap.visible
 
     /** Lo único que llama el launcher: si el PAP está en marcha abre el selector; si no, lo empieza. */
     fun empezar(act: Context) {
