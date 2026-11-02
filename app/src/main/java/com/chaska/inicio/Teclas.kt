@@ -31,8 +31,28 @@ class Teclas : AccessibilityService() {
 
     override fun onInterrupt() {}
 
-    override fun onServiceConnected() { super.onServiceConnected(); servicio = this }
-    override fun onDestroy() { if (servicio === this) servicio = null; SelectorPap.actual?.cerrar(); super.onDestroy() }
+    /** Si Google Play actualiza (o algo activa) una app del registro de «Apps que sobran», se vuelve a desactivar. */
+    private val cambiosDeApps = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context, i: Intent) {
+            val p = i.data?.schemeSpecificPart ?: return
+            if (p in Sobran.elegidas(Ajustes(c))) Sobran.repasar(c, siempre = true)
+        }
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected(); servicio = this
+        // El servicio vive mientras la TV está encendida: buen sitio para enterarse de los cambios de apps.
+        registerReceiver(cambiosDeApps, android.content.IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_REPLACED); addAction(Intent.ACTION_PACKAGE_CHANGED); addAction(Intent.ACTION_PACKAGE_ADDED)
+            addDataScheme("package")
+        })
+        Sobran.repasar(this, siempre = true)                // tras encender la TV, con reintentos
+    }
+    override fun onDestroy() {
+        if (servicio === this) servicio = null
+        try { unregisterReceiver(cambiosDeApps) } catch (e: Exception) { }
+        SelectorPap.actual?.cerrar(); super.onDestroy()
+    }
 
     override fun onKeyEvent(e: KeyEvent): Boolean {
         if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0)

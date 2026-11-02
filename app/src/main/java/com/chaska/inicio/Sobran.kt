@@ -108,4 +108,39 @@ object Sobran {
 
     /** Órdenes para el arranque (Adb.reponerAjustes): se vuelven a desactivar las elegidas. */
     fun ordenesArranque(aj: Ajustes): List<String> = elegidas(aj).sorted().map { "pm disable-user --user 0 $it" }
+
+    @Volatile private var ultimoRepaso = 0L
+    @Volatile private var repasando = false
+
+    /**
+     * Vuelve a desactivar las del registro que estén funcionando. Algunas vuelven solas: al encender la TV o
+     * cuando Google Play las actualiza (FAST, 02/11). Tras encender, la depuración tarda en estar lista: se
+     * reintenta durante un minuto. [siempre] = sin esperar los 10 minutos entre repasos.
+     */
+    fun repasar(ctx: Context, siempre: Boolean = false) {
+        val app = ctx.applicationContext
+        val aj = Ajustes(app)
+        val s = elegidas(aj)
+        val ahora = android.os.SystemClock.elapsedRealtime()
+        if (s.isEmpty() || repasando || (!siempre && ahora - ultimoRepaso < 10 * 60_000L && ultimoRepaso != 0L)) return
+        repasando = true
+        Thread {
+            try {
+                var activas: String? = null
+                for (i in 0 until 12) {
+                    activas = Adb.shell(app, "pm list packages -e")
+                    if (activas != null) break
+                    Thread.sleep(5000)
+                }
+                if (activas == null) { Log.i(TAG, "sobran: sin depuración, no se puede repasar"); return@Thread }
+                val on = activas.lineSequence().map { it.trim().removePrefix("package:") }.toSet()
+                val volver = s.filter { it in on }
+                if (volver.isNotEmpty()) {
+                    Adb.shell(app, volver.joinToString("; ") { "pm disable-user --user 0 $it" })
+                    Log.i(TAG, "sobran: vueltas a desactivar ${volver.joinToString()}")
+                }
+                ultimoRepaso = android.os.SystemClock.elapsedRealtime()
+            } finally { repasando = false }
+        }.start()
+    }
 }
