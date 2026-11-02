@@ -1263,19 +1263,25 @@ class MainActivity : Activity() {
             cuerpo.removeAllViews()
             if (l == null) { cuerpo.addView(nota("Hace falta la depuración: Ajustes › Sistema › Permisos avanzados (adb).")); return@buscar }
             if (l.isEmpty()) { cuerpo.addView(nota("En esta TV no hay ninguna de la lista.")); return@buscar }
-            cuerpo.addView(nota("Encendido = desactivada. Las apps que abres desde el inicio no salen aquí. Se pueden volver a activar."))
-            for (c in l) {
-                val sw = Interruptor(this, c.desactivada)
-                val f = Fila(this, c.nombre, aj.colorSel)
-                f.valor.text = c.p.explicacion ?: c.p.origen
-                f.valor.maxWidth = dp(260)
+            cuerpo.addView(nota("Encendido = funcionando · Apagado = desactivada. Las apps que abres desde el inicio no salen aquí."))
+            // Las que hacen lo mismo van en una fila (p. ej. las 15 de Freeview); el texto es lo que hacen, en español.
+            val grupos = l.groupBy { it.p.explicacion ?: it.nombre }
+            for ((texto, apps) in grupos) {
+                val titulo = if (apps.size > 1) "$texto · ${apps.size}" else texto
+                val activa = { apps.any { !it.desactivada } }
+                val sw = Interruptor(this, activa())
+                val f = Fila(this, titulo, aj.colorSel)
+                fun estado() { f.valor.text = if (activa()) "Funcionando" else "Desactivada" }
+                estado()
                 f.accesorio = sw
                 f.setOnClickListener {
-                    val quiero = !c.desactivada
-                    f.valor.text = if (quiero) "Desactivando…" else "Activando…"
-                    Sobran.cambiar(this, aj, c.p.paquete, quiero) { ok ->
-                        if (ok) { c.desactivada = quiero; sw.encendido = quiero }
-                        f.valor.text = if (ok) (c.p.explicacion ?: c.p.origen) else "La TV no lo deja"
+                    val desactivar = activa()
+                    f.valor.text = if (desactivar) "Desactivando…" else "Activando…"
+                    var faltan = apps.size
+                    var fallo = false
+                    for (c in apps) Sobran.cambiar(this, aj, c.p.paquete, desactivar) { ok ->
+                        if (ok) c.desactivada = desactivar else fallo = true
+                        if (--faltan == 0) { sw.encendido = activa(); if (fallo) f.valor.text = "La TV no lo deja" else estado() }
                     }
                 }
                 cuerpo.addView(f)
