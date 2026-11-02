@@ -109,10 +109,13 @@ class Ficha(
     /**
      * Con la luz en marcha, todo lo que no se mueve (halo, reflejo, cuerpo, borde) se pinta una vez en esta imagen
      * y en cada fotograma solo se copia y se pinta encima la luz. Antes se redibujaba la ficha entera 36 veces por
-     * segundo (medido 02/11: 115 % de un núcleo). Se pinta un 20 % más grande para que no se vea borrosa al crecer.
+     * segundo (medido 02/11: 115 % de un núcleo). Se pinta al tamaño al que se ve enfocada (×1,13): así cada punto de
+     * la imagen cae en un punto de la pantalla y no se ve borrosa ni con dientes.
      */
     private var estatico: Bitmap? = null
     private val dstEstatico = RectF()
+    /** Con suavizado: sin él, al copiar la imagen las esquinas redondeadas salían en escalera. */
+    private val pEstatico = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val arribaReflejo = r.bottom + 4f * d + altoNombre
     private val pDesvanecer = Paint().apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
@@ -205,19 +208,23 @@ class Ficha(
         invalidate()
     }
 
+    /**
+     * La luz que gira y el destello se mueven a 30 fotogramas por segundo, no a 60: cada fotograma obliga a Android
+     * a componer toda la pantalla (36 ms en esta TV) y a una luz suave no se le nota (medido 02/11).
+     */
+    private val tic = object : Runnable {
+        override fun run() { if (animador != null) { invalidate(); postDelayed(this, 1000L / FPS_LUZ) } }
+    }
+
     private fun arrancar() {
         if (animador != null) return
-        animador = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 1000
-            repeatCount = ValueAnimator.INFINITE
-            addUpdateListener { invalidate() }
-            start()
-        }
+        animador = ValueAnimator.ofFloat(0f, 1f)          // solo marca que la luz está en marcha
+        removeCallbacks(tic); post(tic)
     }
 
     private fun parar() {
-        animador?.cancel()
         animador = null
+        removeCallbacks(tic)
     }
 
     /** El halo se pinta una vez en un bitmap (el desenfoque es caro) y luego solo se copia. */
@@ -270,7 +277,7 @@ class Ficha(
             val e = estatico ?: pintarEstatico()?.also { estatico = it }
             if (e != null) {
                 dstEstatico.set(0f, 0f, width.toFloat(), height.toFloat())
-                c.drawBitmap(e, null, dstEstatico, null)
+                c.drawBitmap(e, null, dstEstatico, pEstatico)
                 giro(c); destello(c)
                 if (esFavorita) estrella.draw(c)
                 if (conNombre) c.drawText(nombre, r.centerX(), r.bottom + 17f * d, pNombre)
@@ -358,7 +365,8 @@ class Ficha(
     }
 
     companion object {
-        private const val NITIDEZ = 1.2f
+        private const val FPS_LUZ = 30
+        private const val NITIDEZ = 1.13f            // la misma escala que la ficha enfocada (aplicarFoco)
         const val PAP = "stark:pap"
         const val CASA = "stark:casa"
         val ANCHOS = floatArrayOf(112f, 144f, 176f, 208f)

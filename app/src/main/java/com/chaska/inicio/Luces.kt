@@ -28,6 +28,10 @@ class Luces(ctx: Context) : View(ctx) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val mezcla = ArgbEvaluator()
 
+    // Quieta casi siempre: guardada en la tarjeta gráfica, así no se vuelven a pintar sus degradados a pantalla
+    // completa cada vez que la luz de una ficha se mueve.
+    init { setLayerType(LAYER_TYPE_HARDWARE, null) }
+
     private var objetivo: View? = null
     private var ox = 0f
     private var oy = 0f
