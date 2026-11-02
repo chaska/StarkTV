@@ -58,10 +58,21 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
     /** Ya hubo imagen y se perdió (en el PAP, otra app que reproduce vídeo se queda la vía de vídeo del chip). */
     private var tuvoImagen = false
     private var recuperaciones = 0
+    /** Tras perder la imagen se pasa al segundo sintonizador (HW1, el de imagen dentro de imagen) y no se vuelve al HW0. */
+    private var enSegundo = false
     private val recuperar = Runnable {
         if (estado.visibility != View.VISIBLE) return@Runnable
-        Log.i(TAG, "se perdió la imagen: se vuelve a sintonizar (${recuperaciones}/$MAX_RECUPERAR)")
-        if (canales.isNotEmpty()) sintonizar() else if (entrada != null) { intento = 0; probarSinCanal() }
+        val hw1 = sintonizadores.firstOrNull { it != entrada }
+        if (enSegundo || hw1 == null) {
+            // Ni el segundo sintonizador: el chip no deja TV y el vídeo de otra app a la vez. Se avisa y no se pelea.
+            Log.i(TAG, "sin imagen tampoco en ${hw1 ?: "el segundo sintonizador"}: se deja de intentar")
+            estado.text = "La TV y el vídeo de la otra app no caben a la vez"
+            return@Runnable
+        }
+        enSegundo = true
+        Log.i(TAG, "se perdió la imagen (otra app con vídeo): se pasa a $hw1")
+        val uri = canales.getOrNull(actual)?.let { TvContract.buildChannelUri(it.id) } ?: TvContract.buildChannelUri(idCanal)
+        try { tv.tune(hw1, uri) } catch (e: Exception) { Log.w(TAG, "tune en $hw1 falló: $e") }
     }
 
     init {
@@ -89,15 +100,15 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         tv.setCallback(object : TvView.TvInputCallback() {
             override fun onVideoAvailable(inputId: String) {
                 Log.i(TAG, "imagen disponible en $inputId")
-                tuvoImagen = true; recuperaciones = 0
+                tuvoImagen = true
                 removeCallbacks(vigia)
                 estado.visibility = View.GONE
             }
             override fun onVideoUnavailable(inputId: String, reason: Int) {
                 Log.i(TAG, "sin imagen en $inputId, motivo $reason")
                 estado.visibility = View.VISIBLE
-                // Se ha quedado sin imagen después de tenerla: se vuelve a pedir, que el chip puede dar la otra vía
-                // (en el PAP con YouTube reproduciendo, 02/11). Pocas veces, para no quedarse en bucle.
+                // Sin imagen después de tenerla: otra app con vídeo (YouTube) se ha quedado el sintonizador principal.
+                // Se prueba una vez el segundo (02/11: volver al principal era un tira y afloja con YouTube).
                 if (tuvoImagen && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING && recuperaciones < MAX_RECUPERAR) {
                     recuperaciones++
                     removeCallbacks(recuperar); postDelayed(recuperar, 2000)
@@ -161,7 +172,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
 
     fun apagar() {
         removeCallbacks(recuperar)
-        tuvoImagen = false; recuperaciones = 0
+        tuvoImagen = false; recuperaciones = 0; enSegundo = false
         removeCallbacks(siguiente)
         removeCallbacks(vigia)
         try { tv.reset() } catch (e: Exception) { }
@@ -248,6 +259,6 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
 
     companion object {
         const val TAG = "InicioTV"
-        private const val MAX_RECUPERAR = 3
+        private const val MAX_RECUPERAR = 2
     }
 }
