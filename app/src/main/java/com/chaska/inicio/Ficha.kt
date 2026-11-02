@@ -102,9 +102,17 @@ class Ficha(
     private val matrizGiro = Matrix()
     private val pGiro = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 3f * d; shader = giroShader }
     private val anchoDestello = ancho * .35f
-    private val pDestello = Paint().apply {
-        shader = LinearGradient(0f, 0f, anchoDestello, 0f, intArrayOf(0, 0x73FFFFFF, 0), null, Shader.TileMode.CLAMP)
-    }
+    private val destelloShader = LinearGradient(0f, 0f, anchoDestello, 0f, intArrayOf(0, 0x73FFFFFF, 0), null, Shader.TileMode.CLAMP)
+    private val matrizDestello = Matrix()
+    /** El destello se pinta con la forma de la ficha (sin recortes: un recorte redondeado en cada fotograma es caro). */
+    private val pDestello = Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = destelloShader }
+    /**
+     * Con la luz en marcha, todo lo que no se mueve (halo, reflejo, cuerpo, borde) se pinta una vez en esta imagen
+     * y en cada fotograma solo se copia y se pinta encima la luz. Antes se redibujaba la ficha entera 36 veces por
+     * segundo (medido 02/11: 115 % de un núcleo). Se pinta un 20 % más grande para que no se vea borrosa al crecer.
+     */
+    private var estatico: Bitmap? = null
+    private val dstEstatico = RectF()
     private val arribaReflejo = r.bottom + 4f * d + altoNombre
     private val pDesvanecer = Paint().apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
@@ -169,6 +177,7 @@ class Ficha(
 
     private fun aplicarFoco() {
         val activo = isFocused || levantada
+        estatico?.recycle(); estatico = null
         // La casa y el PAP no crecen enteros: crece solo su dibujo (en onDraw), así el nombre no se mueve de la fila.
         val soloIcono = (esPap || esCasa) && !levantada
         val s = if (levantada) 1.16f else if (activo && !soloIcono) 1.13f else 1f
@@ -224,6 +233,24 @@ class Ficha(
         return b
     }
 
+    override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
+        super.onSizeChanged(w, h, ow, oh)
+        estatico?.recycle(); estatico = null
+    }
+
+    private fun pintarEstatico(): Bitmap? {
+        if (width <= 0 || height <= 0) return null
+        val b = Bitmap.createBitmap((width * NITIDEZ).toInt(), (height * NITIDEZ).toInt(), Bitmap.Config.ARGB_8888)
+        val c = Canvas(b)
+        c.scale(NITIDEZ, NITIDEZ)
+        halo?.let { c.drawBitmap(it, 0f, 0f, null) }
+        if (conReflejo) reflejo(c)
+        c.drawRoundRect(r, radio, radio, pSombra)
+        cuerpo(c)
+        c.drawRoundRect(r, radio, radio, pBordeFoco)
+        return b
+    }
+
     override fun onDraw(c: Canvas) {
         val activo = isFocused || levantada
         if (esPap || esCasa) {
@@ -237,6 +264,18 @@ class Ficha(
             iconoPap.draw(c)
             if (conNombre) c.drawText(nombre, r.centerX(), r.bottom + 17f * d, pNombre)
             return
+        }
+        if (activo && animado && animador != null) {
+            // Con la luz en marcha: la parte quieta, ya pintada, y encima solo lo que se mueve.
+            val e = estatico ?: pintarEstatico()?.also { estatico = it }
+            if (e != null) {
+                dstEstatico.set(0f, 0f, width.toFloat(), height.toFloat())
+                c.drawBitmap(e, null, dstEstatico, null)
+                giro(c); destello(c)
+                if (esFavorita) estrella.draw(c)
+                if (conNombre) c.drawText(nombre, r.centerX(), r.bottom + 17f * d, pNombre)
+                return
+            }
         }
         if (activo) halo?.let { c.drawBitmap(it, 0f, 0f, null) }
         if (conReflejo) reflejo(c)
@@ -311,15 +350,15 @@ class Ficha(
         val f = (SystemClock.uptimeMillis() % 2800) / 2800f
         if (f > .55f) return
         val x = r.left - anchoDestello * 1.5f + (f / .55f) * (ancho + anchoDestello * 3f)
-        c.save()
-        c.clipPath(camino)
-        c.translate(x + .36f * r.centerY(), 0f)
-        c.skew(-.36f, 0f)
-        c.drawRect(0f, r.top - alto, anchoDestello, r.bottom + alto, pDestello)
-        c.restore()
+        // La banda inclinada va en el degradado; fuera de ella es transparente, así basta con pintar la ficha.
+        matrizDestello.setSkew(-.36f, 0f)
+        matrizDestello.postTranslate(x + .36f * r.centerY(), 0f)
+        destelloShader.setLocalMatrix(matrizDestello)
+        c.drawRoundRect(r, radio, radio, pDestello)
     }
 
     companion object {
+        private const val NITIDEZ = 1.2f
         const val PAP = "stark:pap"
         const val CASA = "stark:casa"
         val ANCHOS = floatArrayOf(112f, 144f, 176f, 208f)
