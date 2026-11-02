@@ -47,10 +47,38 @@ class Teclas : AccessibilityService() {
             addDataScheme("package")
         })
         Sobran.repasar(this, siempre = true)                // tras encender la TV, con reintentos
+        // TVs con MediaTek: cada cambio de canal (en su app de TV o en la nuestra) se anuncia con su número.
+        try {
+            registerReceiver(avisosMtk, android.content.IntentFilter(VentanaTv.AVISO_MTK), android.content.Context.RECEIVER_EXPORTED)
+        } catch (e: Exception) { Log.w(TAG, "avisos de MediaTek: $e") }
+    }
+
+    /**
+     * Se apunta el último canal visto en la TV, para que la ventanita y el PAP pongan el mismo que Live TV.
+     * Y se aprende en qué fila de la lista del sistema está: MediaTek lo escribe en su registro justo al cambiar
+     * («find channel id2097281==>1533»); con la depuración se lee y se guarda. Así no hace falta buscar canales.
+     */
+    private val avisosMtk = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context, i: Intent) {
+            val n = VentanaTv.numeroMtk(i) ?: return
+            @Suppress("DEPRECATION")
+            val id = i.extras?.get("channel_id")?.toString() ?: return
+            val p = Ajustes(c).p
+            if (p.getInt(VentanaTv.K_ULTIMO, -1) != n) p.edit().putInt(VentanaTv.K_ULTIMO, n).apply()
+            if (VentanaTv.filaConocida(p, n)) return
+            val app = c.applicationContext
+            Thread {
+                val log = Adb.shell(app, "logcat -d -t 600") ?: return@Thread
+                val fila = Regex("find channel id$id==>(\\d+)").findAll(log).lastOrNull()?.groupValues?.get(1)?.toLongOrNull() ?: return@Thread
+                VentanaTv.aprenderFila(p, fila, n)
+                Log.i(TAG, "canal $n de la TV en la fila $fila")
+            }.start()
+        }
     }
     override fun onDestroy() {
         if (servicio === this) servicio = null
         try { unregisterReceiver(cambiosDeApps) } catch (e: Exception) { }
+        try { unregisterReceiver(avisosMtk) } catch (e: Exception) { }
         SelectorPap.actual?.cerrar(); super.onDestroy()
     }
 

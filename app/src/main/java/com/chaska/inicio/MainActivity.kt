@@ -971,6 +971,8 @@ class MainActivity : Activity() {
         }
         interruptor("tvsonido", "Sonido de la ventana", aj.tvSonido) { aj.tvSonido = it; ventana.sonido(it) }
         interruptor("tvrotulo", "Nombre del canal y la fuente", aj.tvRotulo) { aj.tvRotulo = it; ventana.mostrarRotulo(it) }
+        val nCanales = ventana.propios().size
+        nueva("canales", "Canales de la antena", if (nCanales > 0) "$nCanales canales  ›" else "Buscar  ›") { abrirCanales() }
 
         seccion("Efectos")
         interruptor("reflejo", "Reflejo en el suelo", aj.reflejo) { aj.reflejo = it; pintarCarrusel(true) }
@@ -1298,6 +1300,52 @@ class MainActivity : Activity() {
             cuerpo.addView(todas)
             cuerpo.getChildAt(1)?.requestFocus()
         }
+    }
+
+    /**
+     * «Canales de la antena»: si la TV no deja leer su lista de canales, Stark TV la busca (prueba cada canal y
+     * guarda los que dan imagen). En TVs MediaTek sale con el número y el orden de su app de TV.
+     */
+    private fun abrirCanales() {
+        dialogo?.dismiss()
+        ventana.apagar()
+        val panel = Vidrio.panel(this, "Canales de la antena", dp(560))
+        val vista = VentanaTv(this, aj.colorSel, aj.p)
+        panel.addView(vista, LinearLayout.LayoutParams(dp(320), dp(180)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(10) })
+        val cuerpo = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        panel.addView(ScrollView(this).apply { isVerticalScrollBarEnabled = false; addView(cuerpo) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, resources.displayMetrics.heightPixels - dp(330)))
+        val dl = Vidrio.dialogo(this, panel, aj, Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, dp(14))
+        dialogo = dl
+        dl.setOnDismissListener { vista.pararBusqueda(); vista.apagar(); if (aj.tvVentana && !enSalva) ventana.encender() }
+        dl.setOnCancelListener { abrirAjustes() }
+        fun pintar() {
+            cuerpo.removeAllViews()
+            val l = vista.propios()
+            val nums = vista.numeros()
+            val buscar = Fila(this, if (l.isEmpty()) "Buscar canales" else "Volver a buscar", aj.colorSel)
+            buscar.valor.text = "Tarda unos minutos"
+            buscar.setOnClickListener {
+                buscar.valor.text = "Empezando…"
+                vista.buscarCanales({ fila, n -> buscar.valor.text = "Probando $fila · $n canales" }) { pintar() }
+            }
+            cuerpo.addView(buscar)
+            if (l.isEmpty()) {
+                cuerpo.addView(nota("Esta TV no deja ver su lista de canales: Stark TV la busca una vez (prueba cada canal y guarda los que dan imagen; las radios se saltan)."))
+                return
+            }
+            cuerpo.addView(nota(if (nums.isNotEmpty()) "En el mismo orden y con el número de la app de TV. OK: verlo aquí." else "En el orden en que se encontraron. OK: verlo aquí."))
+            l.forEachIndexed { i, fila ->
+                // Con números de la TV (MediaTek), el que falte sale como «?»; sin ninguno (otras marcas), 1, 2, 3…
+                val f = Fila(this, "Canal ${nums[fila] ?: if (nums.isEmpty()) "${i + 1}" else "?"}", aj.colorSel)
+                f.valor.text = "fila $fila"
+                f.setOnClickListener { vista.verFila(fila) }
+                cuerpo.addView(f)
+            }
+        }
+        pintar()
+        cuerpo.getChildAt(0)?.requestFocus()
+        vista.post { vista.encender(0, false) }
     }
 
     private fun elegirCopia() {
