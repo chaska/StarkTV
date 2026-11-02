@@ -991,6 +991,11 @@ class MainActivity : Activity() {
         swPorDefecto = sw
         nueva("pordefecto", "Launcher por defecto", acc = sw) { cambiarPorDefecto(!esPorDefecto()) }
 
+        // Solo en las TVs que traen los canales FAST con anuncios (Thomson/MediaTek); apagado de serie.
+        if (Adb.hayFast(this)) interruptor("fast", "Desactivar canales FAST con anuncios", aj.quitarFast) {
+            aj.quitarFast = it
+            if (it) Adb.reponerAjustes(this) else Adb.enSegundoPlano(this, "pm enable ${Adb.FAST}")
+        }
         nueva("copia", "Copia de ajustes", "Guardar o recuperar  ›") { elegirCopia() }
         panel.addView(nota("Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName} · Desarrollado por ChasKa · Licencia GPL v3"))
 

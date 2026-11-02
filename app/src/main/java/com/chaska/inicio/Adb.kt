@@ -62,7 +62,15 @@ object Adb {
     }
 
     /** Ajustes que necesita Stark TV y que la TV pierde al reiniciar o al actualizar la app. */
-    fun reponerAjustes(ctx: Context) = enSegundoPlano(ctx, listOf(
+    /** Canales FAST con anuncios (iWedia, en TVs MediaTek/Thomson): se reactivan solos en cada arranque. */
+    const val FAST = "com.cltv.fast"
+
+    /** ¿Está en esta TV la app de canales FAST? En otras marcas (Xiaomi…) no existe y no se toca nada. */
+    fun hayFast(ctx: Context) = try { ctx.packageManager.getApplicationInfo(FAST, 0); true } catch (e: Exception) { false }
+
+    fun reponerAjustes(ctx: Context) = enSegundoPlano(ctx, listOfNotNull(
+        // Solo si el usuario lo ha pedido en Ajustes › Sistema y la app existe en esta TV.
+        if (Ajustes(ctx).quitarFast && hayFast(ctx)) "pm disable-user --user 0 $FAST" else null,
         "settings put global force_resizable_activities 1",
         "settings put global enable_freeform_support 1",
         "settings put global hidden_api_policy 1",

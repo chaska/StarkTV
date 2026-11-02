@@ -26,6 +26,8 @@
 
     <!-- Android 11+: para poder ver las apps instaladas y abrirlas. -->
     <queries>
+        <!-- Canales FAST con anuncios (Thomson/MediaTek): para la opción de desactivarlos (Ajustes › Sistema). -->
+        <package android:name="com.cltv.fast" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
