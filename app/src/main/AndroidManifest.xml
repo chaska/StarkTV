@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Poner delante la ventana de la parte elegida del PAP (permiso normal). -->
     <uses-permission android:name="android.permission.REORDER_TASKS" />
+    <!-- Nombres de las apps del sistema en «Apps que sobran» (las que no se abren desde el inicio no se ven sin esto). -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <!-- Para volver a encender el servicio de la tuerca tras cada actualización (Android lo apaga).
          Se concede una vez por adb: pm grant com.chaska.inicio android.permission.WRITE_SECURE_SETTINGS -->
     <uses-permission

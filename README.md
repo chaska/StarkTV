@@ -169,3 +169,6 @@ Se distribuye SIN NINGUNA GARANTÍA. El texto completo está en [`LICENSE`](LICE
 
 Las imágenes de los fondos *Castillo*, *Halloween* y *Santa's Day* y los iconos de la interfaz son aportados por ChasKa para este proyecto.
 Android y Android TV son marcas de Google LLC; Thomson es marca de su titular. Este proyecto no está afiliado a ninguna de ellas.
+
+### Listas de «Apps que sobran»
+La lista de `app/src/main/assets/sobran.json` junta las medidas por Stark TV en TVs reales, las marcadas como «recomendadas» por [Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation) (GPL-3.0) y, para contrastar, las de [Projectivy Launcher](https://github.com/spocky/miproja1) que faltaban. Stark TV solo enseña las que hay en cada TV, nunca las apps que se abren desde el inicio, y todo se puede volver a activar.

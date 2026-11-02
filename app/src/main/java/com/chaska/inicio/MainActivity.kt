@@ -998,11 +998,7 @@ class MainActivity : Activity() {
         swPorDefecto = sw
         nueva("pordefecto", "Launcher por defecto", acc = sw) { cambiarPorDefecto(!esPorDefecto()) }
 
-        // Solo en las TVs que traen los canales FAST con anuncios (Thomson/MediaTek); apagado de serie.
-        if (Adb.hayFast(this)) interruptor("fast", "Desactivar canales FAST con anuncios", aj.quitarFast) {
-            aj.quitarFast = it
-            if (it) Adb.reponerAjustes(this) else Adb.enSegundoPlano(this, "pm enable ${Adb.FAST}")
-        }
+        nueva("sobran", "Apps que sobran", "Elegir  ›") { abrirSobran() }
         nueva("copia", "Copia de ajustes", "Guardar o recuperar  ›") { elegirCopia() }
         panel.addView(nota("Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName} · Desarrollado por ChasKa · Licencia GPL v3"))
 
@@ -1245,6 +1241,53 @@ class MainActivity : Activity() {
             .setPositiveButton("Guardar") { _, _ -> campo.text.toString().trim().takeIf { it.isNotEmpty() }?.let(listo) }
             .setNegativeButton("Cancelar", null)
             .show()
+    }
+
+    /**
+     * «Apps que sobran» (ver Sobran.kt): las de esta TV que se pueden desactivar, cada una con su interruptor
+     * (encendido = desactivada). Abajo, volver a activar todas.
+     */
+    private fun abrirSobran() {
+        dialogo?.dismiss()
+        val panel = Vidrio.panel(this, "Apps que sobran", dp(560))
+        val cuerpo = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val aviso = nota("Buscando en esta TV…")
+        cuerpo.addView(aviso)
+        panel.addView(ScrollView(this).apply { isVerticalScrollBarEnabled = false; addView(cuerpo) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, resources.displayMetrics.heightPixels - dp(170)))
+        val dl = Vidrio.dialogo(this, panel, aj, Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, dp(20))
+        dl.setOnCancelListener { abrirAjustes() }
+        dialogo = dl
+        Sobran.buscar(this) { l ->
+            if (dialogo !== dl) return@buscar
+            cuerpo.removeAllViews()
+            if (l == null) { cuerpo.addView(nota("Hace falta la depuración: Ajustes › Sistema › Permisos avanzados (adb).")); return@buscar }
+            if (l.isEmpty()) { cuerpo.addView(nota("En esta TV no hay ninguna de la lista.")); return@buscar }
+            cuerpo.addView(nota("Encendido = desactivada. Las apps que abres desde el inicio no salen aquí. Se pueden volver a activar."))
+            for (c in l) {
+                val sw = Interruptor(this, c.desactivada)
+                val f = Fila(this, c.nombre, aj.colorSel)
+                f.valor.text = c.p.explicacion ?: c.p.origen
+                f.valor.maxWidth = dp(260)
+                f.accesorio = sw
+                f.setOnClickListener {
+                    val quiero = !c.desactivada
+                    f.valor.text = if (quiero) "Desactivando…" else "Activando…"
+                    Sobran.cambiar(this, aj, c.p.paquete, quiero) { ok ->
+                        if (ok) { c.desactivada = quiero; sw.encendido = quiero }
+                        f.valor.text = if (ok) (c.p.explicacion ?: c.p.origen) else "La TV no lo deja"
+                    }
+                }
+                cuerpo.addView(f)
+            }
+            val todas = Fila(this, "Volver a activar todas", aj.colorSel)
+            todas.setOnClickListener {
+                todas.valor.text = "Activando…"
+                Sobran.activarTodas(this, aj) { ok -> if (ok) abrirSobran() else todas.valor.text = "Sin depuración" }
+            }
+            cuerpo.addView(todas)
+            cuerpo.getChildAt(1)?.requestFocus()
+        }
     }
 
     private fun elegirCopia() {

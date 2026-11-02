@@ -68,15 +68,14 @@ object Adb {
     /** ¿Está en esta TV la app de canales FAST? En otras marcas (Xiaomi…) no existe y no se toca nada. */
     fun hayFast(ctx: Context) = try { ctx.packageManager.getApplicationInfo(FAST, 0); true } catch (e: Exception) { false }
 
-    fun reponerAjustes(ctx: Context) = enSegundoPlano(ctx, listOfNotNull(
-        // Solo si el usuario lo ha pedido en Ajustes › Sistema y la app existe en esta TV.
-        if (Ajustes(ctx).quitarFast && hayFast(ctx)) "pm disable-user --user 0 $FAST" else null,
+    fun reponerAjustes(ctx: Context) = enSegundoPlano(ctx, (listOfNotNull(
         "settings put global force_resizable_activities 1",
         "settings put global enable_freeform_support 1",
         "settings put global hidden_api_policy 1",
         "wm set-ignore-orientation-request true",
         "appops set ${ctx.packageName} MANAGE_EXTERNAL_STORAGE allow",
         "pm grant ${ctx.packageName} android.permission.WRITE_SECURE_SETTINGS",
+    ) + Sobran.ordenesArranque(Ajustes(ctx))      // «Apps que sobran» elegidas: algunas TVs las reactivan al encender
     ).joinToString("; ")) { r -> Log.i(TAG, "ajustes repuestos: ${r != null}") }
 
     /** Tarea de la lista de Android: número, afinidad (≈ paquete), si se ve, modo y límites. */
