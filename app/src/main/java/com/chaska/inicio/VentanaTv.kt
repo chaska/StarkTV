@@ -123,6 +123,8 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
                     recuperaciones++
                     removeCallbacks(recuperar); postDelayed(recuperar, 2000)
                 }
+                // Una radio no es un fallo: no se prueba el otro sintonizador ni se dice «la TV no deja».
+                if (reason == TvInputManager.VIDEO_UNAVAILABLE_REASON_AUDIO_ONLY) { removeCallbacks(vigia); removeCallbacks(siguiente) }
                 estado.text = when (reason) {
                     TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING -> "Sintonizando…"
                     TvInputManager.VIDEO_UNAVAILABLE_REASON_WEAK_SIGNAL -> "Sin señal"
@@ -322,7 +324,13 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         f to n
     }.toMap()
 
-    private fun filaDe(numero: Int): Long? = if (numero < 0) null else numeros().entries.firstOrNull { it.value == numero }?.key
+    /** La fila del canal [numero]; si un canal de TV y una radio lo comparten (número mal leído), gana el de TV. */
+    private fun filaDe(numero: Int): Long? {
+        if (numero < 0) return null
+        val con = numeros().entries.filter { it.value == numero }.map { it.key }
+        val tv = filas(K_PROPIOS)
+        return con.firstOrNull { it in tv } ?: con.firstOrNull { it !in radios() || conRadios() }
+    }
 
     /** Mientras se busca: el número que anuncia MediaTek para la fila que acaba de dar imagen. */
     private var numeroVisto: ((Int) -> Unit)? = null
@@ -352,6 +360,9 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         fun cerrar() {
             buscando = false
             try { context.unregisterReceiver(avisoNumero) } catch (e: Exception) { }
+            // Un número solo puede ser de una fila: si una radio tiene el de un canal de TV (se leyó mal), se le quita.
+            val deTv = vistos.mapNotNull { nums[it] }.toSet()
+            radiosVistas.filter { nums[it] in deTv }.forEach { nums.remove(it) }
             // Con número (MediaTek), en el mismo orden que la app de TV; si no, en el orden encontrado.
             val l = vistos.sortedWith(compareBy({ nums[it] ?: Int.MAX_VALUE }, { it }))
             val rs = radiosVistas.sortedWith(compareBy({ nums[it] ?: Int.MAX_VALUE }, { it }))
