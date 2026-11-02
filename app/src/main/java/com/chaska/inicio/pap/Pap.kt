@@ -28,10 +28,12 @@ object Pap {
     /** 4-7: PIP. La parte 1 a pantalla completa y la 2 en una ventana pequeña en la esquina. */
     fun esPip(reparto: Int) = reparto >= 4
 
-    /** Lo que se puede poner en una parte: las fuentes de TV, YouTube (web) y todas las apps. */
-    fun opciones(ctx: Context): List<Pair<String, String>> =
-        Ajustes.FUENTES_TV.mapIndexed { i, n -> "$TV$i" to n } + listOf(YOUTUBE_WEB to "YouTube (web)") +
-            Apps.todas(ctx).map { it to Apps.nombre(ctx, it) }.sortedBy { it.second.lowercase() }
+    /** Lo que se puede poner en una parte: las fuentes de TV, YouTube (web) y las apps que no están ocultas en el dock. */
+    fun opciones(ctx: Context): List<Pair<String, String>> {
+        val ocultas = ListaApps(ctx, Ajustes(ctx).p).ocultas()
+        return Ajustes.FUENTES_TV.mapIndexed { i, n -> "$TV$i" to n } + listOf(YOUTUBE_WEB to "YouTube (web)") +
+            Apps.todas(ctx).filter { it !in ocultas }.map { it to Apps.nombre(ctx, it) }.sortedBy { it.second.lowercase() }
+    }
 
     fun nombre(ctx: Context, clave: String): String =
         if (clave == YOUTUBE_WEB) "YouTube (web)"
