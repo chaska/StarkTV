@@ -68,6 +68,14 @@ object CatalogoFondos {
         return try { File(clave).canonicalPath.startsWith(raiz) } catch (e: Exception) { false }
     }
 
+    private fun soloLetras(t: String) = t.substringBeforeLast('.').lowercase().filter { it.isLetterOrDigit() }
+
+    /** ¿Es [nombre] (archivo) uno de los fondos que trae la app, por su archivo o por su nombre visible? */
+    private fun yaIncluido(nombre: String): Boolean {
+        val n = soloLetras(nombre)
+        return INCLUIDOS.any { (f, visible) -> soloLetras(f) == n || soloLetras("$visible.x") == n }
+    }
+
     fun todos(ctx: Context): List<OpcionFondo> {
         val res = mutableListOf<OpcionFondo>()
         val hay = ctx.assets.list("fondos")?.toSet().orEmpty()
@@ -78,8 +86,9 @@ object CatalogoFondos {
         for (dir in listOf(recibidos) + carpetas()) {
             val deConfianza = dir == recibidos
             dir.listFiles()?.sortedBy { it.name.lowercase() }?.forEach { f ->
-                // Una copia de un fondo que ya trae la app (castillo.webp en Descargas) no sale dos veces.
-                if (f.isFile && !f.name.startsWith(".") && INCLUIDOS.none { it.first.equals(f.name, ignoreCase = true) }) {
+                // Una copia de un fondo que ya trae la app no sale dos veces: ni castillo.webp en Descargas ni
+                // «Santa_s-day.webp» (el mismo Santa's Day con otro nombre). Se comparan solo letras y números.
+                if (f.isFile && !f.name.startsWith(".") && !yaIncluido(f.name)) {
                     tipoDe(f.name)?.let { if (it != OpcionFondo.Tipo.HTML || deConfianza) res += OpcionFondo(f.absolutePath, f.name.substringBeforeLast('.'), it) }
                 } else if (f.isDirectory && deConfianza) {
                     val idx = File(f, "index.html")
