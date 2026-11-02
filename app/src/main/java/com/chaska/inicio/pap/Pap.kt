@@ -109,7 +109,8 @@ object Pap {
         } catch (e: Exception) { Log.w(TAG, "PAP: sin fondo: $e") }
         // En PIP la ventana pequeña (parte 2) se abre la última para que quede encima.
         val orden = if (manejar == 1 && !esPip(aj.papReparto)) listOf(1, 0) else listOf(0, 1)
-        val objetivos = listOf(busqueda(aj.papIzq, 1) to Rect(r1), busqueda(aj.papDer, 2) to Rect(r2))
+        // La misma app en las dos partes (ajuste guardado de antes): solo se coloca en la primera.
+        val objetivos = listOf(busqueda(aj.papIzq, 1) to Rect(r1), busqueda(aj.papDer, 2) to Rect(r2)).distinctBy { it.first }
         aj.papActivo = true
         aj.papParte = manejar
         lanzadoEnEsteProceso = true
@@ -164,7 +165,7 @@ object Pap {
                 val todas = objetivos.all { (b, _) -> buscar(lista, b) != null }
                 if (todas && !activaDelante && !(esPip(aj.papReparto) && manejar == 1)) {
                     activaDelante = true
-                    buscar(lista, objetivos[manejar - 1].first)?.let { t -> principal.post { alFrente(ctx, t.id) } }
+                    buscar(lista, (objetivos.getOrNull(manejar - 1) ?: objetivos.first()).first)?.let { t -> principal.post { alFrente(ctx, t.id) } }
                 }
                 Thread.sleep(1000)
             }

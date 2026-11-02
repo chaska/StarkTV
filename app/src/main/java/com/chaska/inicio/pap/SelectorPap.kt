@@ -143,7 +143,12 @@ class SelectorPap private constructor(private val ctx: Context) {
                 when {
                     m.tipo == Marca.FUENTE -> {
                         val i = m.parte - 1
-                        elegida[i] = (elegida[i] + paso + ops.size) % ops.size
+                        // Una app solo se abre una vez: la que ya está en la otra parte se salta (si no, el colocador
+                        // la llevaba de una mitad a la otra sin parar, 02/11). TV y YouTube (web) sí se repiten.
+                        val otra = ops.getOrNull(elegida[1 - i])?.first
+                        var n = 0
+                        do { elegida[i] = (elegida[i] + paso + ops.size) % ops.size; n++ }
+                        while (n < ops.size && ops[elegida[i]].first == otra && Adb.esPaquete(otra ?: ""))
                         pintarNombres(); m
                     }
                     m.tipo == Marca.PARTE && !ab -> Marca(Marca.PARTE, if (paso > 0) 2 else 1)
