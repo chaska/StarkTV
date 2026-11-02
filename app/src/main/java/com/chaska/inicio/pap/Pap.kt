@@ -250,6 +250,22 @@ object Pap {
     fun buscar(lista: List<Adb.Tarea>, b: Pair<String, Boolean>): Adb.Tarea? =
         lista.firstOrNull { it.visible && it.modo == "freeform" && (if (b.second) it.afinidad == b.first else it.afinidad.startsWith(b.first)) }
 
+    /**
+     * Sin adb: pone delante una parte volviendo a abrirla (la app o el visor ya abiertos solo pasan delante, con
+     * el mando). No se cierra ni se recoloca nada más.
+     */
+    fun traerParte(ctx: Context, aj: Ajustes, parte: Int) {
+        val clave = if (parte == 1) aj.papIzq else aj.papDer
+        val intent = when {
+            clave.startsWith(TV) -> Intent(ctx, if (parte == 1) VisorIzq::class.java else VisorDer::class.java)
+                .putExtra(Visor.EXTRA_FUENTE, clave.removePrefix(TV).toIntOrNull() ?: 0).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            clave == YOUTUBE_WEB -> Intent(ctx, if (parte == 1) VisorWebIzq::class.java else VisorWebDer::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            else -> Apps.intentDe(ctx, clave) ?: return
+        }
+        try { ctx.startActivity(intent) } catch (e: Exception) { Log.w(TAG, "PAP: no se pudo poner delante $clave: $e") }
+    }
+
     fun alFrente(ctx: Context, id: Int) = try {
         (ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).moveTaskToFront(id, 0)
     } catch (e: Exception) { Log.w(TAG, "PAP: no se pudo poner delante $id: $e") }

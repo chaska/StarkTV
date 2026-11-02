@@ -211,14 +211,18 @@ class SelectorPap private constructor(private val ctx: Context) {
      * la ventana de esa parte (la busca por adb) y el mando va con ella. Si cambió su fuente, se abre.
      */
     private fun volver(parte: Int, cambio: Boolean = false) {
-        cerrar()
-        if (cambio) { Pap.lanzar(ctx, aj, parte, cambio = true); return }
+        if (cambio) { cerrar(); Pap.lanzar(ctx, aj, parte, cambio = true); return }
         aj.papParte = parte
         Pap.aplicarSonido(ctx, aj)
+        // La capa se queda puesta hasta que la parte elegida está delante: si se quitaba antes, el mando seguía en la
+        // otra parte y el OK siguiente le llegaba a ella (02/11). Mientras, las teclas se las queda el selector.
         val b = Pap.busqueda(if (parte == 1) aj.papIzq else aj.papDer, parte)
         Thread {
             val t = Adb.tareas(ctx)?.let { Pap.buscar(it, b) }
-            principal.post { if (t != null) Pap.alFrente(ctx, t.id) else Pap.lanzar(ctx, aj, parte) }   // sin adb: como antes
+            principal.post {
+                if (t != null) Pap.alFrente(ctx, t.id) else Pap.traerParte(ctx, aj, parte)    // sin adb: se vuelve a abrir
+                principal.postDelayed({ cerrar() }, 250)
+            }
         }.start()
     }
 
