@@ -143,6 +143,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         val tim = context.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
         sonido(conSonido)
         if (fuente > 0) { externa(tim, fuente); return }
+        entradaExterna = null
         prepararSintonizadores(tim)
         canales = leerCanales(sintonizadores.toSet())
         Log.i(TAG, "sintonizadores=$sintonizadores canales=${canales.size}")
@@ -172,6 +173,17 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         entrada = sintonizadores.firstOrNull { it.endsWith("HW0") } ?: sintonizadores.firstOrNull()
     }
 
+    /** Entrada HDMI o AV que se está viendo (null con la antena). */
+    private var entradaExterna: String? = null
+
+    /**
+     * Lo que se ve ahora, para abrirlo en la app de TV de la tele («ver este canal»): el canal de la lista, la fila
+     * del sistema (sin lista) o la entrada HDMI/AV. null si aún no hay nada.
+     */
+    fun queSeVe(): Uri? = entradaExterna?.let { TvContract.buildChannelUriForPassthroughInput(it) }
+        ?: canales.getOrNull(actual)?.let { TvContract.buildChannelUri(it.id) }
+        ?: idCanal.takeIf { it > 0 }?.let { TvContract.buildChannelUri(it) }
+
     /** Sonido de la ventana: apagado por defecto para no pisar al resto. */
     fun sonido(con: Boolean) = tv.setStreamVolume(if (con) 1f else 0f)
 
@@ -183,6 +195,7 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         val id = if (fuente <= 3) hdmi.getOrNull(fuente - 1) else av.firstOrNull()
         canales = emptyList()
         entrada = null
+        entradaExterna = id
         rotulo.text = listOf("HDMI 1", "HDMI 2", "HDMI 3", "AV").getOrElse(fuente - 1) { "Entrada" }
         if (id == null) { estado.visibility = View.VISIBLE; estado.text = "Esta TV no tiene esa entrada"; return }
         estado.visibility = View.VISIBLE

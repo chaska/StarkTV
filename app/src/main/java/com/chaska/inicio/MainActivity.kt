@@ -549,13 +549,17 @@ class MainActivity : Activity() {
         gravity = Gravity.CENTER
         alpha = 0f
         visibility = View.GONE
+        // Cada texto mide lo que ocupa (no todo el ancho) y va centrado: así el bloque puede saltar a cualquier
+        // sitio de la pantalla (ocupando todo el ancho se quedaba pegado a la izquierda y solo subía y bajaba).
+        fun centrado() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { gravity = Gravity.CENTER_HORIZONTAL }
         horaSalva = relojDegradado(110f)
-        addView(horaSalva)
+        addView(horaSalva, centrado())
         addView(TextClock(this@MainActivity).apply {
             format24Hour = "EEEE, d 'de' MMMM"; format12Hour = format24Hour
             textSize = 22f
             setTextColor(0xC8FFFFFF.toInt())
-        }.conFuente())
+        }.conFuente(), centrado())
         salvaTiempo = TextView(this@MainActivity).apply {
             textSize = 18f
             setTextColor(0xC8FFFFFF.toInt())
@@ -563,7 +567,7 @@ class MainActivity : Activity() {
             compoundDrawablePadding = dp(8)
             gravity = Gravity.CENTER_VERTICAL
         }.conFuente()
-        addView(salvaTiempo)
+        addView(salvaTiempo, centrado())
     }
 
     /** Hora en degradado plateado con un leve resplandor azulado. */
@@ -683,9 +687,22 @@ class MainActivity : Activity() {
         try { startActivity(i, Pap.pantallaCompleta()) } catch (e: Exception) { avisar("No se puede abrir") }
     }
 
+    /**
+     * OK en la MiniTV: abre la app de TV de la tele (Live TV o la que tenga esa marca) en lo mismo que se ve aquí,
+     * pidiéndole a Android «ver este canal». Antes se abría Live TV sin canal y se quedaba pidiendo la lista.
+     * La MiniTV suelta antes el sintonizador. Si ninguna app sabe abrir el canal, se abre la de TV de la tele.
+     */
     private fun abrirTdt() {
-        val tdt = listOf("com.mediatek.wwtv.tvcenter").firstOrNull { Apps.intentDe(this, it) != null }
-        if (tdt != null) abrir(tdt) else avisar("No encuentro la app de la TDT")
+        val uri = ventana.queSeVe()
+        ventana.apagar()
+        if (uri != null) {
+            val ver = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (ver.resolveActivity(packageManager) != null) try {
+                startActivity(ver, Pap.pantallaCompleta()); return
+            } catch (e: Exception) { android.util.Log.w("InicioTV", "no se pudo abrir el canal $uri: $e") }
+        }
+        val tdt = listOf("com.mediatek.wwtv.tvcenter", "com.google.android.tv", "com.android.tv").firstOrNull { Apps.intentDe(this, it) != null }
+        if (tdt != null) abrir(tdt) else { avisar("No encuentro la app de TV de la tele"); if (aj.tvVentana) ventana.encender() }
     }
 
     private fun avisar(t: String) {
