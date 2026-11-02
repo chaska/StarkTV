@@ -123,6 +123,6 @@ class Ajustes(ctx: Context) {
         val FUENTES_TV = listOf("Antena", "HDMI 1", "HDMI 2", "HDMI 3", "AV")
         fun esVertical(dock: Int) = dock >= 3
         val MINUTOS_ROTAR = listOf(0, 15, 30, 60)
-        val MINUTOS_SALVA = listOf(0, 5, 10, 30)
+        val MINUTOS_SALVA = listOf(0, 1, 5, 10, 30)
     }
 }
