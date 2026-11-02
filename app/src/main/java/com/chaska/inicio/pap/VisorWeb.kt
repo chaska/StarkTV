@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.view.KeyEvent
+import android.webkit.CookieManager
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -66,13 +67,20 @@ open class VisorWeb(val parte: Int) : Activity() {
             }
         }
         setContentView(raiz)
+        // La sesión de YouTube vive en cookies de youtube.com y de accounts.google.com (de terceros para la web):
+        // se aceptan las dos y se guardan en disco al salir (ver onPause), si no al cerrar el PAP se perdía.
+        CookieManager.getInstance().apply { setAcceptCookie(true); setAcceptThirdPartyCookies(web, true) }
         web.requestFocus()
         web.loadUrl(URL)
         abiertos += this
     }
 
     override fun onResume() { super.onResume(); if (::web.isInitialized) { web.onResume(); web.resumeTimers() } }
-    override fun onPause() { if (::web.isInitialized) web.onPause(); super.onPause() }
+    override fun onPause() {
+        if (::web.isInitialized) web.onPause()
+        CookieManager.getInstance().flush()           // la sesión, a disco ya (el PAP puede cerrarse sin avisar)
+        super.onPause()
+    }
 
     override fun onDestroy() {
         abiertos -= this
