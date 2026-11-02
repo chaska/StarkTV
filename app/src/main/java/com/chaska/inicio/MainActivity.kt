@@ -1357,16 +1357,41 @@ class MainActivity : Activity() {
         fondo.mostrar(aj.fondo)
     }
 
+    /**
+     * En el salvapantallas, el reloj, la fecha y el tiempo cambian de sitio cada 5 s (se desvanecen, saltan a otro
+     * punto al azar, siempre enteros en la pantalla, y vuelven): más vistoso y no se queda marcado en la tele.
+     */
+    private val moverSalva = object : Runnable {
+        override fun run() {
+            if (!enSalva) return
+            salva.animate().alpha(0f).setDuration(450).withEndAction {
+                if (!enSalva) return@withEndAction
+                val ancho = (0 until salva.childCount).maxOfOrNull { salva.getChildAt(it).width } ?: 0
+                val alto = (0 until salva.childCount).sumOf { salva.getChildAt(it).height }
+                val mx = ((salva.width - ancho) / 2f - dp(24)).coerceAtLeast(0f)
+                val my = ((salva.height - alto) / 2f - dp(24)).coerceAtLeast(0f)
+                salva.translationX = (Math.random().toFloat() * 2 - 1) * mx
+                salva.translationY = (Math.random().toFloat() * 2 - 1) * my
+                salva.animate().alpha(1f).setDuration(450).start()
+            }.start()
+            salva.postDelayed(this, 5000)
+        }
+    }
+
     private fun entrarSalva() {
         enSalva = true
         contenido.animate().alpha(0f).setDuration(700).start()
+        salva.translationX = 0f; salva.translationY = 0f
         salva.visibility = View.VISIBLE
         salva.animate().alpha(1f).setDuration(700).start()
+        salva.removeCallbacks(moverSalva)
+        salva.postDelayed(moverSalva, 5000)
     }
 
     private fun salirSalva(animar: Boolean) {
         if (!enSalva) return
         enSalva = false
+        salva.removeCallbacks(moverSalva)
         contenido.animate().alpha(1f).setDuration(if (animar) 250 else 0).start()
         salva.animate().alpha(0f).setDuration(if (animar) 250 else 0).withEndAction { salva.visibility = View.GONE }.start()
     }
