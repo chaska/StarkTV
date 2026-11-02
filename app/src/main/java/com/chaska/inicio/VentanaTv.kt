@@ -344,26 +344,52 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         val inicio = prefs.getLong("tv_id", 1533).coerceAtLeast(1)
         val vistos = sortedSetOf<Long>()
         val radiosVistas = sortedSetOf<Long>()
-        val nums = mutableMapOf<Long, Int>()
+        // Se parte de los números que ya se sabían (de Live TV o de otra búsqueda): una búsqueda no los olvida.
+        val nums = leerNumeros(prefs)
         try { context.registerReceiver(avisoNumero, android.content.IntentFilter(AVISO_MTK), Context.RECEIVER_EXPORTED) } catch (e: Exception) { }
         var subiendo = true
         var fallos = 0
+        fun cerrar() {
+            buscando = false
+            try { context.unregisterReceiver(avisoNumero) } catch (e: Exception) { }
+            // Con número (MediaTek), en el mismo orden que la app de TV; si no, en el orden encontrado.
+            val l = vistos.sortedWith(compareBy({ nums[it] ?: Int.MAX_VALUE }, { it }))
+            val rs = radiosVistas.sortedWith(compareBy({ nums[it] ?: Int.MAX_VALUE }, { it }))
+            if (l.isNotEmpty()) {
+                guardarPropios(l)
+                prefs.edit().putString(K_RADIOS, rs.joinToString(",")).apply()
+                prefs.edit().putString(K_NUMEROS, nums.entries.joinToString(",") { "${it.key}:${it.value}" }).apply()
+            }
+            Log.i(TAG, "búsqueda de canales: ${l.size} canales y ${rs.size} radios, ${nums.size} con número")
+            fin(l)
+        }
+        // Segunda vuelta solo para los que se quedaron sin número: se espera más (5 s) a MediaTek o a su registro.
+        fun segundaVuelta(pendientes: List<Long>, i: Int) {
+            if (!buscando) return
+            if (i >= pendientes.size) return cerrar()
+            val id = pendientes[i]
+            avanza(id, vistos.size)
+            estado.text = "Número de $id…"
+            val sig = Runnable { numeroVisto = null; segundaVuelta(pendientes, i + 1) }
+            val reg = Runnable {
+                numeroVisto = null
+                val app = context.applicationContext
+                Thread {
+                    val log = Adb.shell(app, "logcat -d -t 800")
+                    val n = log?.let { Regex("find channel id(\\d+)==>$id\\b").findAll(it).lastOrNull()?.groupValues?.get(1)?.toLongOrNull() }
+                        ?.let { (it shr 18).toInt() }?.takeIf { it in 1..9999 }
+                    post { if (n != null) nums[id] = n; segundaVuelta(pendientes, i + 1) }
+                }.start()
+            }
+            numeroVisto = { n -> nums[id] = n; removeCallbacks(reg); post(sig) }
+            postDelayed(reg, 5000)
+            try { tv.tune(hw, TvContract.buildChannelUri(id)) } catch (e: Exception) { removeCallbacks(reg); post(sig) }
+        }
         fun probar(id: Long) {
             if (!buscando) return
             if (id < 1 || fallos >= MAX_FALLOS) {
                 if (subiendo) { subiendo = false; fallos = 0; return probar(inicio - 1) }
-                buscando = false
-                try { context.unregisterReceiver(avisoNumero) } catch (e: Exception) { }
-                // Con número (MediaTek), en el mismo orden que la app de TV; si no, en el orden encontrado.
-                val l = vistos.sortedWith(compareBy({ nums[it] ?: Int.MAX_VALUE }, { it }))
-                val rs = radiosVistas.sortedWith(compareBy({ nums[it] ?: Int.MAX_VALUE }, { it }))
-                if (l.isNotEmpty()) {
-                    guardarPropios(l)
-                    prefs.edit().putString(K_RADIOS, rs.joinToString(",")).apply()
-                    prefs.edit().putString(K_NUMEROS, nums.entries.joinToString(",") { "${it.key}:${it.value}" }).apply()
-                }
-                Log.i(TAG, "búsqueda de canales: ${l.size} canales y ${rs.size} radios, ${nums.size} con número")
-                return fin(l)
+                return segundaVuelta((vistos + radiosVistas).filter { nums[it] == null }, 0)
             }
             estado.visibility = View.VISIBLE
             estado.text = "Probando $id…"

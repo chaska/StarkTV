@@ -960,6 +960,9 @@ class MainActivity : Activity() {
         opciones("salva", "Salvapantallas", minutos(Ajustes.MINUTOS_SALVA), Ajustes.MINUTOS_SALVA.indexOf(aj.salvaMin)) { i ->
             aj.salvaMin = Ajustes.MINUTOS_SALVA[i]
         }
+
+        // La ventanita de TV y sus canales, en su propia pestaña (Pantalla ya tenía demasiado).
+        seccion("MiniTV")
         interruptor("tdt", "Ventana de TV en directo", aj.tvVentana) {
             aj.tvVentana = it
             aplicar()

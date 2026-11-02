@@ -66,7 +66,7 @@ Ver «Seguridad» más abajo.
 - Efectos que se pueden apagar si la TV va justa: reflejo en el suelo, cristal difuminado y animaciones de luz.
 
 ### Ajustes
-- Ajustes al estilo iPhone, por pestañas (Fondo, Dock, Reloj, Pantalla, Efectos, PAP, Sistema), todo con el mando (◀ ▶ cambian los valores).
+- Ajustes al estilo iPhone, por pestañas (Fondo, Dock, Reloj, Pantalla, MiniTV, Efectos, PAP, Sistema), todo con el mando (◀ ▶ cambian los valores).
 - Acceso directo a los ajustes de la TV, apps ocultas y copia de seguridad de los ajustes.
 - **Estrella** del mando en el inicio: los favoritos de Stark TV (no los de Android).
 - **Apps que sobran** (*Sistema*): las apps de esa TV que se pueden desactivar (anuncios, canales FAST, menús de fábrica, informes…), explicadas en español, con interruptor (encendido = funcionando) y «Volver a activar todas». Stark TV las vuelve a desactivar al encender y cuando Google Play las actualiza. Necesita la depuración.
