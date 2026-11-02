@@ -185,7 +185,9 @@ class Ficha(
             .start()
         if (activo) {
             if (halo == null) halo = crearHalo()
-            if (animado) arrancar()
+            // La casa y el PAP no dibujan la luz que gira: sin esto se repintaban 50 veces por segundo para nada
+            // (medido 02/11: 50 % de procesador con la casa seleccionada y el inicio quieto).
+            if (animado && !esPap && !esCasa) arrancar() else parar()
         } else {
             parar()
             halo?.recycle()
