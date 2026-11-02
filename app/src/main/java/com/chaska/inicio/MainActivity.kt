@@ -976,7 +976,7 @@ class MainActivity : Activity() {
         }
         opciones("tvtamano", "Tamaño de la ventana", listOf("0,5x", "1x", "2x"), aj.tvTamano.coerceIn(0, 2)) { i ->
             aj.tvTamano = i
-            pintarCarrusel(true)
+            montarDock()                                      // recoloca la ventanita con el tamaño nuevo
         }
         interruptor("tvsonido", "Sonido de la ventana", aj.tvSonido) { aj.tvSonido = it; ventana.sonido(it) }
         interruptor("tvrotulo", "Nombre del canal y la fuente", aj.tvRotulo) { aj.tvRotulo = it; ventana.mostrarRotulo(it) }
