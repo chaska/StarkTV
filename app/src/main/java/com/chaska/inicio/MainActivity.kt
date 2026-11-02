@@ -172,6 +172,7 @@ class MainActivity : Activity() {
 
     override fun dispatchKeyEvent(e: KeyEvent): Boolean {
         ultimaTecla = SystemClock.uptimeMillis()
+        fondo.reanudar()
         if (enSalva) {
             if (e.action == KeyEvent.ACTION_UP) salirSalva(true)
             return true
@@ -1336,6 +1337,8 @@ class MainActivity : Activity() {
 
     private fun comprobarTiempos() {
         val ahora = SystemClock.uptimeMillis()
+        // En reposo, el fondo animado se para (gastaba más de un núcleo con el inicio quieto).
+        if (ahora - ultimaTecla > REPOSO_FONDO_MS) fondo.pausar()
         val falta = textoTiempo == null && (ultimoTiempo == 0L || ahora - ultimoTiempo > 60_000)
         if (aj.tiempo && (falta || ahora - ultimoTiempo > 30 * 60_000L)) pedirTiempo()
         if (aj.rotarMin > 0 && ahora - ultimaRotacion > aj.rotarMin * 60_000L) {
@@ -1384,6 +1387,8 @@ class MainActivity : Activity() {
 
     companion object {
         const val EXTRA_AJUSTES = "abrir_ajustes"
+        /** Tiempo sin tocar el mando para que el fondo animado se quede quieto. */
+        private const val REPOSO_FONDO_MS = 60_000L
         const val EXTRA_FAVORITOS = "abrir_favoritos"
         /** El inicio de Stark TV está en pantalla. */
         @Volatile var enInicio = false

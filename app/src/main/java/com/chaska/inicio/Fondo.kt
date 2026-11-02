@@ -125,7 +125,30 @@ class Fondo(private val ctx: Context, private val capa: FrameLayout) {
         }
     }
 
+    private var pausado = false
+
+    /**
+     * Sin tocar el mando un rato, el fondo animado (HTML5, vídeo o GIF) se queda quieto: en la Thomson el HTML5
+     * gastaba más de un núcleo entero sin parar con el inicio en reposo (02/11). Vuelve con la primera tecla.
+     */
+    fun pausar() {
+        if (pausado) return
+        pausado = true
+        web?.let { it.onPause(); it.pauseTimers() }
+        reproductor?.let { if (it.isPlaying) it.pause() }
+        animada?.stop()
+    }
+
+    fun reanudar() {
+        if (!pausado) return
+        pausado = false
+        web?.let { it.resumeTimers(); it.onResume() }
+        reproductor?.start()
+        animada?.start()
+    }
+
     fun liberar() {
+        pausado = false
         animada?.stop(); animada = null
         reproductor?.release(); reproductor = null
         web?.apply { stopLoading(); loadUrl("about:blank"); removeAllViews(); destroy() }
