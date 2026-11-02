@@ -696,7 +696,9 @@ class MainActivity : Activity() {
         val uri = ventana.queSeVe()
         ventana.apagar()
         if (uri != null) {
-            val ver = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            // Con el tipo «canal» (el estándar de Android TV): sin él, la app de TV no responde (visto en la Thomson).
+            val ver = Intent(Intent.ACTION_VIEW).setDataAndType(uri, android.media.tv.TvContract.Channels.CONTENT_ITEM_TYPE)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             if (ver.resolveActivity(packageManager) != null) try {
                 startActivity(ver, Pap.pantallaCompleta()); return
             } catch (e: Exception) { android.util.Log.w("InicioTV", "no se pudo abrir el canal $uri: $e") }
