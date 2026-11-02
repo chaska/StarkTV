@@ -393,6 +393,12 @@ class MainActivity : Activity() {
         // Tamaño elegido en MiniTV: la mitad, el de siempre (288×162) o el doble.
         val f = Ajustes.TAMANOS_TV.getOrElse(aj.tvTamano) { 1f }
         val lp = FrameLayout.LayoutParams(dp(288 * f), dp(162 * f))
+        // En 2x, centrada en la pantalla (en una esquina pisaba el reloj y el tiempo).
+        if (aj.tvTamano == 2) {
+            lp.gravity = Gravity.CENTER
+            ventana.layoutParams = lp
+            return
+        }
         if (aj.tvPos in 1..4) {
             val izq = aj.tvPos == 1 || aj.tvPos == 3
             val arriba = aj.tvPos <= 2
@@ -427,12 +433,12 @@ class MainActivity : Activity() {
         vto.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 contenido.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                val z = zonaDock ?: return
+                val z = zonaDock ?: return evitarReloj()
                 val rv = android.graphics.Rect().also { ventana.getHitRect(it) }
                 val rz = android.graphics.Rect().also { z.getHitRect(it) }
                 // En horizontal la zona ocupa todo el ancho: lo que cuenta es la fila de fichas.
                 if (!vertical) rz.set(0, rz.top, contenido.width, rz.bottom)
-                if (!android.graphics.Rect.intersects(rv, rz)) return
+                if (!android.graphics.Rect.intersects(rv, rz)) return evitarReloj()
                 val lp = ventana.layoutParams as FrameLayout.LayoutParams
                 val hueco = dp(16)
                 if (vertical) {
@@ -450,8 +456,39 @@ class MainActivity : Activity() {
                     lp.topMargin = if (encima >= dp(70)) encima else rz.bottom + hueco
                 }
                 ventana.layoutParams = lp
+                // Ya apartada del dock, se mira el reloj cuando se haya vuelto a colocar.
+                contenido.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() { contenido.viewTreeObserver.removeOnGlobalLayoutListener(this); evitarReloj() }
+                })
             }
         })
+    }
+
+    /**
+     * Si la ventanita pisa el bloque de la hora y el tiempo (sobre todo en 2x), se aparta: primero debajo del
+     * reloj, si ahí cabe sin pisar el dock; si no, al otro lado de la pantalla.
+     */
+    private fun evitarReloj() {
+        if (!aj.tvVentana || bloqueReloj.visibility != View.VISIBLE) return
+        val rv = android.graphics.Rect().also { ventana.getHitRect(it) }
+        val rr = android.graphics.Rect().also { bloqueReloj.getHitRect(it) }
+        if (!android.graphics.Rect.intersects(rv, rr)) return
+        val lp = ventana.layoutParams as FrameLayout.LayoutParams
+        val hueco = dp(16)
+        val rz = zonaDock?.let { z -> android.graphics.Rect().also { z.getHitRect(it); if (!vertical) it.set(0, it.top, contenido.width, it.bottom) } }
+        val arriba = rr.bottom + hueco
+        val debajo = android.graphics.Rect(rv.left, arriba, rv.right, arriba + rv.height())
+        if (debajo.bottom <= contenido.height - dp(16) && (rz == null || !android.graphics.Rect.intersects(debajo, rz))) {
+            lp.gravity = (lp.gravity and Gravity.HORIZONTAL_GRAVITY_MASK) or Gravity.TOP
+            lp.topMargin = arriba; lp.bottomMargin = 0
+        } else {
+            // Al otro lado: si estaba a la derecha (donde suele ir el reloj), a la izquierda, y al revés.
+            val derecha = rv.centerX() > contenido.width / 2
+            lp.gravity = (lp.gravity and Gravity.VERTICAL_GRAVITY_MASK) or if (derecha) Gravity.START else Gravity.END
+            if (derecha) { lp.marginStart = (rz?.takeIf { vertical && it.centerX() < contenido.width / 2 }?.right ?: 0) + dp(32); lp.marginEnd = 0 }
+            else { lp.marginEnd = dp(32); lp.marginStart = 0 }
+        }
+        ventana.layoutParams = lp
     }
 
     private fun construirSalva(): LinearLayout = LinearLayout(this).apply {
@@ -1101,7 +1138,8 @@ class MainActivity : Activity() {
             })
         }
         val sw = Interruptor(this, aj.tvSonido)
-        Ajustes.POSICIONES_TV.forEachIndexed { i, nombre ->
+        // En 2x va siempre centrada: sin opciones de posición.
+        if (aj.tvTamano != 2) Ajustes.POSICIONES_TV.forEachIndexed { i, nombre ->
             anadirAGrupo(g, Fila(this, "Posición: $nombre", sel).apply {
                 if (i + 1 == aj.tvPos) accesorio = View(this@MainActivity).apply {
                     background = icono(Icono.Tipo.CHECK, sel, 18)
