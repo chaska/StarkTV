@@ -362,6 +362,8 @@ class MainActivity : Activity() {
         var botonIzq = !relojIzq
         if (botonIzq && aj.dock == 3) botonIzq = false
         if (!botonIzq && aj.dock == 5) botonIzq = true
+        // MiniTV 2x con el dock a un lado: la tuerca y, debajo, el reloj, en el lado contrario al dock.
+        if (tvGrande && vertical) { botonIzq = aj.dock == 5; relojIzq = botonIzq }
         return Cabecera(relojIzq, botonIzq)
     }
 
@@ -379,6 +381,13 @@ class MainActivity : Activity() {
             if (abajo) bottomMargin = dp(16) else topMargin = dp(16); marginStart = dp(78); marginEnd = dp(78)
         }
         bloqueReloj.gravity = Gravity.CENTER_HORIZONTAL
+        if (tvGrande && Ajustes.esVertical(aj.dock)) {
+            bloqueReloj.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or if (c.relojIzq) Gravity.START else Gravity.END).apply {
+                topMargin = dp(if (aj.papBoton) 128 else 76); marginStart = dp(22); marginEnd = dp(22)
+            }
+            return
+        }
         bloqueReloj.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             vertical or if (c.relojIzq) Gravity.START else Gravity.END).apply {
             if (abajo) bottomMargin = dp(22) else topMargin = dp(22)
@@ -397,6 +406,7 @@ class MainActivity : Activity() {
         if (aj.tvTamano == 2) {
             lp.gravity = Gravity.CENTER
             ventana.layoutParams = lp
+            ajustarGrande()
             return
         }
         if (aj.tvPos in 1..4) {
@@ -460,6 +470,49 @@ class MainActivity : Activity() {
                 contenido.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
                     override fun onGlobalLayout() { contenido.viewTreeObserver.removeOnGlobalLayoutListener(this); evitarReloj() }
                 })
+            }
+        })
+    }
+
+    /** MiniTV 2x encendida: va en el hueco libre, el dock no puede ir al centro y las fichas son micro. */
+    private val tvGrande get() = aj.tvVentana && aj.tvTamano == 2
+    private fun docksPermitidos() = if (tvGrande) listOf(0, 2, 3, 5) else Ajustes.POSICIONES.indices.toList()
+
+    /**
+     * MiniTV 2x: se mide el hueco que dejan el dock (con la ficha levantada y los nombres; medido el 02/11: dock
+     * abajo empieza en 539 de 720, dock arriba acaba en 192), el reloj y los bordes, y se centra ahí. Si no cabe
+     * entera (576×324), encoge manteniendo el 16:9.
+     */
+    private fun ajustarGrande() {
+        contenido.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                contenido.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                val w = contenido.width; val h = contenido.height
+                if (w <= 0 || h <= 0) return
+                val hueco = dp(10)
+                var izq = dp(16); var der = w - dp(16); var arr = dp(16); var aba = h - dp(16)
+                zonaDock?.let { z ->
+                    val rz = android.graphics.Rect().also { z.getHitRect(it) }
+                    when (aj.dock) {
+                        0 -> aba = rz.top - hueco
+                        2 -> arr = rz.bottom + hueco
+                        3 -> izq = rz.right + hueco
+                        5 -> der = rz.left - hueco
+                    }
+                }
+                // Con el dock a un lado, la tuerca y el reloj ocupan la otra columna.
+                if (vertical && bloqueReloj.visibility == View.VISIBLE) {
+                    val rr = android.graphics.Rect().also { bloqueReloj.getHitRect(it) }
+                    if (rr.centerX() > w / 2) der = minOf(der, rr.left - hueco) else izq = maxOf(izq, rr.right + hueco)
+                }
+                val anchoLibre = (der - izq).coerceAtLeast(dp(60))
+                val altoLibre = (aba - arr).coerceAtLeast(dp(34))
+                val alto = minOf(dp(324), altoLibre, anchoLibre * 9 / 16)
+                val ancho = alto * 16 / 9
+                val lp = FrameLayout.LayoutParams(ancho, alto, Gravity.TOP or Gravity.START)
+                lp.leftMargin = izq + (anchoLibre - ancho) / 2
+                lp.topMargin = arr + (altoLibre - alto) / 2
+                ventana.layoutParams = lp
             }
         })
     }
@@ -735,8 +788,9 @@ class MainActivity : Activity() {
 
     /** Las mismas posiciones que Ajustes › Dock › Posición; el dock se mueve al momento. */
     private fun elegirPosicionDock() {
-        elegir("Posición del dock", Ajustes.POSICIONES, actual = aj.dock) { i ->
-            aj.dock = i; montarDock(); pintarCarrusel(true)
+        val docks = docksPermitidos()
+        elegir("Posición del dock", docks.map { Ajustes.POSICIONES[it] }, actual = docks.indexOf(aj.dock).coerceAtLeast(0)) { i ->
+            aj.dock = docks[i]; montarDock(); pintarCarrusel(true)
         }
     }
 
@@ -938,8 +992,13 @@ class MainActivity : Activity() {
         nueva("recibir", "Recibir fondos desde el móvil o PC", "›") { dialogo?.dismiss(); abrirRecibir() }
 
         seccion("Dock")
-        opciones("dock", "Posición", Ajustes.POSICIONES, aj.dock) { i -> aj.dock = i; montarDock(); pintarCarrusel(true) }
-        opciones("tamano", "Tamaño de fichas", Ajustes.TAMANOS, aj.tamano) { i -> aj.tamano = i; pintarCarrusel(true) }
+        val docks = docksPermitidos()
+        opciones("dock", "Posición", docks.map { Ajustes.POSICIONES[it] }, docks.indexOf(aj.dock).coerceAtLeast(0)) { i ->
+            aj.dock = docks[i]; montarDock(); pintarCarrusel(true)
+        }
+        // Con la MiniTV 2x solo caben las fichas micro.
+        if (tvGrande) opciones("tamano", "Tamaño de fichas", listOf(Ajustes.TAMANOS[0]), 0) { aj.tamano = 0 }
+        else opciones("tamano", "Tamaño de fichas", Ajustes.TAMANOS, aj.tamano) { i -> aj.tamano = i; pintarCarrusel(true) }
         interruptor("titulo", "Título del dock", aj.tituloDock) { aj.tituloDock = it; aplicar() }
         interruptor("favdock", "Favoritos en el dock", aj.favoritosDock) { aj.favoritosDock = it; pintarCarrusel(true) }
         interruptor("dockoculto", "Ocultar el dock (con la casa)", aj.dockOculto) {
@@ -1013,7 +1072,10 @@ class MainActivity : Activity() {
         }
         opciones("tvtamano", "Tamaño de la ventana", listOf("0,5x", "1x", "2x"), aj.tvTamano.coerceIn(0, 2)) { i ->
             aj.tvTamano = i
+            // 2x: el dock no puede ir al centro (pasa al borde de su lado) y las fichas pasan a micro.
+            if (i == 2) { if (aj.dock == 1) aj.dock = 0; if (aj.dock == 4) aj.dock = 3; aj.tamano = 0 }
             montarDock()                                      // recoloca la ventanita con el tamaño nuevo
+            pintarCarrusel(true)
         }
         interruptor("tvsonido", "Sonido de la ventana", aj.tvSonido) { aj.tvSonido = it; ventana.sonido(it) }
         interruptor("tvrotulo", "Nombre del canal y la fuente", aj.tvRotulo) { aj.tvRotulo = it; ventana.mostrarRotulo(it) }
