@@ -390,7 +390,9 @@ class MainActivity : Activity() {
 
     /** La ventanita de TDT va en una esquina que dejan libre el dock y el reloj. */
     private fun colocarVentana(c: Cabecera) {
-        val lp = FrameLayout.LayoutParams(dp(288), dp(162))
+        // Tamaño elegido en MiniTV: la mitad, el de siempre (288×162) o el doble.
+        val f = Ajustes.TAMANOS_TV.getOrElse(aj.tvTamano) { 1f }
+        val lp = FrameLayout.LayoutParams(dp(288 * f), dp(162 * f))
         if (aj.tvPos in 1..4) {
             val izq = aj.tvPos == 1 || aj.tvPos == 3
             val arriba = aj.tvPos <= 2
@@ -971,6 +973,10 @@ class MainActivity : Activity() {
         opciones("tvfuente", "Fuente de la ventana", Ajustes.FUENTES_TV, aj.tvFuente) { i ->
             aj.tvFuente = i
             if (aj.tvVentana) { ventana.apagar(); ventana.encender() }
+        }
+        opciones("tvtamano", "Tamaño de la ventana", listOf("0,5x", "1x", "2x"), aj.tvTamano.coerceIn(0, 2)) { i ->
+            aj.tvTamano = i
+            pintarCarrusel(true)
         }
         interruptor("tvsonido", "Sonido de la ventana", aj.tvSonido) { aj.tvSonido = it; ventana.sonido(it) }
         interruptor("tvrotulo", "Nombre del canal y la fuente", aj.tvRotulo) { aj.tvRotulo = it; ventana.mostrarRotulo(it) }

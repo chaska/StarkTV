@@ -33,6 +33,7 @@ class Ajustes(ctx: Context) {
     var dockOculto by booleano("dock_oculto", false)      // el dock solo sale al pulsar la casa
     var tvSonido by booleano("tv_sonido", false)
     var tvFuente by entero("tv_fuente", 0)      // índice de FUENTES_TV
+    var tvTamano by entero("tv_tamano", 1)      // ventanita de TV: 0 = 0,5x, 1 = 1x, 2 = 2x (TAMANOS_TV)
     var tvPos by entero("tv_pos", 0)            // ventanita de TV: 0 automática, 1-4 según POSICIONES_TV
     var papReparto by entero("pap_reparto", 0)   // índice de Pap.REPARTOS
     var papIzq by texto("pap_izq", "tv:0")       // "tv:N" o paquete de la app
@@ -117,6 +118,8 @@ class Ajustes(ctx: Context) {
         val POSICIONES = listOf("Abajo", "Centro", "Arriba", "Izquierda", "Centro vertical", "Derecha")
         val POSICIONES_RELOJ = listOf("Automática", "Izquierda", "Derecha")
         val POSICIONES_TV = listOf("Arriba izquierda", "Arriba derecha", "Abajo izquierda", "Abajo derecha")
+        /** Tamaños de la ventanita de TV respecto al de siempre (288×162). */
+        val TAMANOS_TV = listOf(0.5f, 1f, 2f)
         val FUENTES_TV = listOf("Antena", "HDMI 1", "HDMI 2", "HDMI 3", "AV")
         fun esVertical(dock: Int) = dock >= 3
         val MINUTOS_ROTAR = listOf(0, 15, 30, 60)
