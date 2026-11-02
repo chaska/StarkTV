@@ -70,13 +70,15 @@ object Pap {
         val apps = listOf(aj.papIzq, aj.papDer).filter { !it.startsWith(TV) && Adb.esPaquete(it) }
         val principal = android.os.Handler(android.os.Looper.getMainLooper())
         Thread {
-            encerrarPantalla(act.applicationContext, apps)
+            if (ENCERRAR_ACTIVO) encerrarPantalla(act.applicationContext, apps)
             principal.post { abrirPartes(act, aj, manejar, nuevo, cambio) }
         }.start()
     }
 
     /** Cambio de Android que hace que una app vea su ventana como la pantalla (tamaño máximo, Display). */
     private const val ENCERRAR = "ALWAYS_SANDBOX_DISPLAY_APIS"
+    /** Apagado (02/11): en prueba por si impedía dos vídeos a la vez en el PAP. */
+    private const val ENCERRAR_ACTIVO = false
 
     /**
      * Una app en una parte del PAP pregunta a Android el tamaño de la pantalla y le dice el de la TV entera
