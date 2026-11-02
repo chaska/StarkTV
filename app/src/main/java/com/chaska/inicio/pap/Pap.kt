@@ -60,6 +60,37 @@ object Pap {
      * se abre la otra primero y la elegida al final.
      */
     fun lanzar(act: Context, aj: Ajustes, manejar: Int = 1, nuevo: Boolean = false, cambio: Boolean = false) {
+        // Primero, por adb, que cada app del PAP vea su parte como la pantalla entera (en otro hilo:
+        // activarlo cierra la app, así que va antes de abrirla). Sin adb se abre igual.
+        val apps = listOf(aj.papIzq, aj.papDer).filter { !it.startsWith(TV) && Adb.esPaquete(it) }
+        val principal = android.os.Handler(android.os.Looper.getMainLooper())
+        Thread {
+            encerrarPantalla(act.applicationContext, apps)
+            principal.post { abrirPartes(act, aj, manejar, nuevo, cambio) }
+        }.start()
+    }
+
+    /** Cambio de Android que hace que una app vea su ventana como la pantalla (tamaño máximo, Display). */
+    private const val ENCERRAR = "ALWAYS_SANDBOX_DISPLAY_APIS"
+
+    /**
+     * Una app en una parte del PAP pregunta a Android el tamaño de la pantalla y le dice el de la TV entera
+     * (1280×720): se dibuja para ese tamaño y sale cortada o descolocada. Con [ENCERRAR] activado, a esa app
+     * Android le contesta con el tamaño de su parte (50 %, 70-30 o PIP). A pantalla completa no cambia nada,
+     * así que se deja puesto. Solo se activa en las que aún no lo tienen (activarlo cierra la app).
+     */
+    private fun encerrarPantalla(ctx: Context, apps: List<String>) {
+        if (apps.isEmpty()) return
+        val estado = Adb.shell(ctx, "dumpsys platform_compat") ?: return
+        val linea = estado.lineSequence().firstOrNull { it.contains("name=$ENCERRAR;") } ?: return
+        for (app in apps.distinct()) {
+            if (linea.contains("$app=true")) continue
+            Adb.shell(ctx, "am compat enable $ENCERRAR $app")
+            Log.i(TAG, "PAP: $app verá su parte como la pantalla entera")
+        }
+    }
+
+    private fun abrirPartes(act: Context, aj: Ajustes, manejar: Int, nuevo: Boolean, cambio: Boolean) {
         val (r1, r2) = limites(act, aj.papReparto)
         // Android corre 80 px una ventana libre si cae en el sitio exacto de otra (aunque esté oculta,
         // p. ej. de un PAP anterior). Al empezar de cero se cierran nuestros visores y se desplaza 0-2 px.
