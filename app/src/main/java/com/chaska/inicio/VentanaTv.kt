@@ -275,9 +275,10 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         }
         val l = propios()
         rotulo.text = when {
-            numeros()[idCanal] != null -> "Canal ${numeros()[idCanal]}"
-            l.isNotEmpty() && idCanal in l -> "Canal ${l.indexOf(idCanal) + 1}"
-            intento <= 1 -> "Canal $idCanal"
+            // Solo el número, como en la app de TV. Sin número conocido no se enseña la fila (no es un canal).
+            numeros()[idCanal] != null -> "${numeros()[idCanal]}"
+            l.isNotEmpty() && idCanal in l -> "${l.indexOf(idCanal) + 1}"
+            intento <= 1 -> "TDT"
             else -> "TDT en directo"
         }
         Log.i(TAG, "sin lista de canales: intento $intento en $id con $uri")
