@@ -49,6 +49,22 @@ class Teclas : AccessibilityService() {
         }
         // Durante el PAP la tuerca cambia de parte (abre el selector) y mantenida cierra el PAP.
         // Es la tecla que llega siempre: Inicio no llega si una app tiene un vídeo a pantalla completa.
+        // La estrella del mando: en el PAP hace de tuerca; en el inicio de Stark TV abre sus favoritos.
+        if (e.keyCode in TECLAS_ESTRELLA) {
+            val pap = Pap.activo(Ajustes(this))
+            if (!pap && !MainActivity.enInicio) return false            // en otra app, lo de siempre
+            if (pap) {
+                if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) { largo = true; despues { Pap.cerrar(this, Ajustes(this)) } }
+                if (e.action == KeyEvent.ACTION_UP) {
+                    if (!largo) despues { val s = SelectorPap.actual; if (s != null && SelectorPap.visible) s.seguir() else Pap.selector(this) }
+                    largo = false
+                }
+            } else if (e.action == KeyEvent.ACTION_UP) despues {
+                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .putExtra(MainActivity.EXTRA_FAVORITOS, true))
+            }
+            return true
+        }
         if (e.keyCode in TECLAS_AJUSTES && Pap.activo(Ajustes(this))) {
             if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 1) { largo = true; despues { Pap.cerrar(this, Ajustes(this)) } }
             if (e.action == KeyEvent.ACTION_UP) {
@@ -99,6 +115,34 @@ class Teclas : AccessibilityService() {
         }
         // La tuerca del mando Thomson llega como BUTTON_14 (201, scan 384); SETTINGS por si otro mando.
         val TECLAS_AJUSTES = setOf(KeyEvent.KEYCODE_BUTTON_14, KeyEvent.KEYCODE_SETTINGS)
+        // La estrella del mando Thomson llega como ZOOM_OUT (169, scan 240); MediaTek la usa para sus favoritos.
+        val TECLAS_ESTRELLA = setOf(KeyEvent.KEYCODE_ZOOM_OUT)
+
+        /**
+         * Android a veces deja el servicio «conectándose» sin llegar a arrancarlo (02/11, tras actualizar): está
+         * activado pero no recibe teclas y la tuerca se va a MediaTek. Si a los 5 s no está en marcha, se apaga
+         * y se vuelve a encender (con WRITE_SECURE_SETTINGS, concedido por adb).
+         */
+        fun vigilar(ctx: android.content.Context) {
+            val app = ctx.applicationContext
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (servicio != null) return@postDelayed
+                if (app.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return@postDelayed
+                val cr = app.contentResolver
+                val nuestro = "${app.packageName}/${Teclas::class.java.name}"
+                val actuales = android.provider.Settings.Secure.getString(cr, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+                    ?.split(':')?.filter { it.isNotBlank() } ?: emptyList()
+                val otros = actuales.filter { it != nuestro && it != "${app.packageName}/.Teclas" }
+                try {
+                    android.provider.Settings.Secure.putString(cr, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, otros.joinToString(":"))
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        android.provider.Settings.Secure.putString(cr, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, (otros + nuestro).joinToString(":"))
+                        android.provider.Settings.Secure.putInt(cr, android.provider.Settings.Secure.ACCESSIBILITY_ENABLED, 1)
+                        Log.i(TAG, "servicio de la tuerca vuelto a arrancar (estaba atascado)")
+                    }, 1500)
+                } catch (e: Exception) { Log.w(TAG, "no se pudo volver a arrancar el servicio de la tuerca: $e") }
+            }, 5000)
+        }
         /** Teclas que nunca se quedan en el selector. */
         private val TECLAS_SISTEMA = setOf(KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN,
             KeyEvent.KEYCODE_VOLUME_MUTE, KeyEvent.KEYCODE_POWER, KeyEvent.KEYCODE_HOME)

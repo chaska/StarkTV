@@ -147,12 +147,19 @@ class MainActivity : Activity() {
             dialogo?.dismiss()
             contenido.post { abrirAjustes() }
         }
+        // La estrella del mando (servicio Teclas) en el inicio: los favoritos de Stark TV, no los de Android.
+        if (intent.getBooleanExtra(EXTRA_FAVORITOS, false)) {
+            intent.removeExtra(EXTRA_FAVORITOS)
+            dialogo?.dismiss()
+            contenido.post { abrirFavoritos() }
+        }
+        Teclas.vigilar(this)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.getBooleanExtra(EXTRA_AJUSTES, false)) return      // lo abre onResume
+        if (intent.getBooleanExtra(EXTRA_AJUSTES, false) || intent.getBooleanExtra(EXTRA_FAVORITOS, false)) return   // lo abre onResume
         // Pulsar Inicio estando ya aquí: cierra todo y vuelve al principio del dock.
         dialogo?.dismiss()
         soltar()
@@ -1325,6 +1332,7 @@ class MainActivity : Activity() {
 
     companion object {
         const val EXTRA_AJUSTES = "abrir_ajustes"
+        const val EXTRA_FAVORITOS = "abrir_favoritos"
         /** El inicio de Stark TV está en pantalla. */
         @Volatile var enInicio = false
         private var ajustesRepuestos = false
