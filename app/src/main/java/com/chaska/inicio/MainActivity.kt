@@ -115,7 +115,7 @@ class MainActivity : Activity() {
         super.onStart()
         Teclas.asegurarActivo(this)
         // Una vez por arranque: reponer por adb los ajustes que la TV pierde al reiniciar.
-        if (!ajustesRepuestos) { ajustesRepuestos = true; Adb.reponerAjustes(this) }
+        if (!ajustesRepuestos) { ajustesRepuestos = true; Adb.reponerAjustes(this); com.chaska.inicio.pap.Pap.recoger(this) }
         swPorDefecto?.encendido = esPorDefecto()
         aplicar()
         fondo.mostrar(aj.fondo)

@@ -2,60 +2,78 @@ package com.chaska.inicio.pap
 
 import com.chaska.inicio.*
 
-import android.app.Activity
 import android.content.Context
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.RectF
-import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
+import android.view.WindowManager
 
 /**
- * Selector del PAP: pantalla transparente encima de las dos partes.
+ * Selector del PAP: capa transparente encima de las dos partes.
  * - Recuadro del color de la selección sobre la parte marcada; ◀ ▶ (▲ ▼ si es arriba y abajo) la cambian.
  * - Debajo de cada parte, su fuente («◀ YouTube ▶»): ▼ baja a ella, ◀ ▶ la cambian, OK la aplica.
  * - Abajo del todo, el círculo con la X: OK cierra el PAP. Mantener Atrás también; Atrás corto vuelve.
  * Mientras está abierto, el mando no toca las apps de debajo.
+ *
+ * Es una ventana del servicio Teclas (capa de accesibilidad), no una pantalla: así la app que maneja el
+ * mando sigue siendo la de debajo y no pierde el foco. Antes era una pantalla sin foco y Android cerraba
+ * Stark TV («no responde») cuando una tecla le llegaba a ella, con el PAP descolocado y parado.
+ * Las teclas le llegan desde el servicio Teclas.
  */
-class SelectorPap : Activity() {
-    private val aj by lazy { Ajustes(this) }
-    private lateinit var lienzo: Lienzo
-    private lateinit var ops: List<Pair<String, String>>
+class SelectorPap private constructor(private val ctx: Context) {
+    private val aj = Ajustes(ctx)
+    private val wm = ctx.getSystemService(WindowManager::class.java)
+    private val principal = Handler(Looper.getMainLooper())
+    private val lienzo: Lienzo
+    private val ops: List<Pair<String, String>>
     /** Fuente elegida (índice en [ops]) para la parte 1 y la 2, aún sin aplicar. */
     private val elegida = IntArray(2)
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        if (!Pap.lanzadoEnEsteProceso) { aj.papActivo = false; finish(); return }
+    init {
         Fuentes.actual = aj.fuente
         Tema.color = aj.colorSel
         Tema.opacidad = aj.opacidad
         Tema.oscuridad = aj.oscuridad
-        ops = Pap.opciones(this)
+        ops = Pap.opciones(ctx)
         elegida[0] = ops.indexOfFirst { it.first == aj.papIzq }.coerceAtLeast(0)
         elegida[1] = ops.indexOfFirst { it.first == aj.papDer }.coerceAtLeast(0)
-        val (r1, r2) = Pap.limites(this, aj.papReparto)
-        lienzo = Lienzo(this, r1, r2, aj.colorSel, aj.papReparto == 3)
-        lienzo.dibujos = listOf(R.drawable.ic_sonido, R.drawable.ic_cerrar, R.drawable.ic_modos).map { getDrawable(it)!!.mutate() }
+        val (r1, r2) = Pap.limites(ctx, aj.papReparto)
+        lienzo = Lienzo(ctx, r1, r2, aj.colorSel, aj.papReparto == 3)
+        lienzo.dibujos = listOf(R.drawable.ic_sonido, R.drawable.ic_cerrar, R.drawable.ic_modos).map { ctx.getDrawable(it)!!.mutate() }
         lienzo.apagado = aj.papSonido == 3
         lienzo.marca = Marca(Marca.PARTE, aj.papParte.coerceIn(1, 2))
         pintarNombres()
         lienzo.sonido = Pap.sonidos(aj.papReparto)[aj.papSonido.coerceIn(0, 3)]
         lienzo.modo = Pap.REPARTOS.getOrElse(aj.papReparto) { "" }
-        setContentView(lienzo)
-        // No quita el foco a la app de debajo (algunas, como TDT Live, se van a su inicio si lo pierden):
-        // las teclas le llegan desde el servicio Teclas mientras está abierto.
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
     }
 
-    override fun onResume() { super.onResume(); actual = this }
-    override fun onDestroy() { if (actual === this) actual = null; super.onDestroy() }
-    override fun onStart() { super.onStart(); visible = true }
-    override fun onStop() { visible = false; super.onStop() }
+    private fun poner(): Boolean = try {
+        // Sin foco y sin toques: la app de debajo conserva el mando (algunas, como TDT Live, se van a su
+        // inicio si lo pierden). La capa de accesibilidad queda siempre por encima de las apps.
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT)
+        wm.addView(lienzo, lp)
+        true
+    } catch (e: Exception) { Log.w(TAG, "PAP: no se pudo poner el selector: $e"); false }
+
+    /** Quita la capa. */
+    fun cerrar() {
+        if (actual === this) { actual = null; visible = false }
+        try { wm.removeView(lienzo) } catch (e: Exception) { }
+    }
 
     private fun pintarNombres() {
         lienzo.nombres = elegida.map { ops.getOrNull(it)?.second ?: "" }
@@ -64,7 +82,7 @@ class SelectorPap : Activity() {
 
     private var atrasLargo = false
 
-    /** Teclas que le pasa el servicio Teclas (el selector no tiene foco). */
+    /** Teclas que le pasa el servicio Teclas. Siempre se quedan aquí: nunca llegan a la app de debajo. */
     fun tecla(e: KeyEvent): Boolean {
         val ok = e.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || e.keyCode == KeyEvent.KEYCODE_ENTER
         if (lienzo.lista >= 0) return teclaLista(e)
@@ -73,12 +91,12 @@ class SelectorPap : Activity() {
                 if (e.repeatCount == 1) { atrasLargo = true; cerrarPap() }
                 return true
             }
-            if (ok) return true
-            return onKeyDown(e.keyCode, e)
+            if (!ok) abajo(e.keyCode)
+            return true
         }
         if (e.action == KeyEvent.ACTION_UP) {
             if (e.keyCode == KeyEvent.KEYCODE_BACK) { if (!atrasLargo) volver(aj.papParte); atrasLargo = false; return true }
-            if (ok) return onKeyUp(e.keyCode, e)
+            if (ok) arriba()
         }
         return true
     }
@@ -103,19 +121,19 @@ class SelectorPap : Activity() {
         if (i == Pap.REPARTOS.size) {
             aj.papIzq = aj.papDer.also { aj.papDer = aj.papIzq }
             Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
-            finish(); overridePendingTransition(0, 0)
-            Pap.lanzar(this, aj, aj.papParte, cambio = true)
+            cerrar()
+            Pap.lanzar(ctx, aj, aj.papParte, cambio = true)
             return
         }
         aj.papReparto = i
-        finish(); overridePendingTransition(0, 0)
-        Pap.lanzar(this, aj, if (Pap.esPip(i)) 2 else aj.papParte)
+        cerrar()
+        Pap.lanzar(ctx, aj, if (Pap.esPip(i)) 2 else aj.papParte)
     }
 
     /** La tuerca otra vez con el selector abierto: se cierra y se sigue en la parte de antes. */
     fun seguir() = volver(aj.papParte)
 
-    override fun onKeyDown(code: Int, e: KeyEvent): Boolean {
+    private fun abajo(code: Int) {
         val m = lienzo.marca
         val ab = aj.papReparto == 3
         val nueva: Marca? = when (code) {
@@ -147,34 +165,27 @@ class SelectorPap : Activity() {
                 m.tipo == Marca.PARTE && ab && m.parte == 2 -> Marca(Marca.FUENTE, 1)
                 else -> m
             }
-            else -> return true
+            else -> null
         }
         if (nueva != null) lienzo.marca = nueva
-        return true
     }
 
-    override fun onKeyUp(code: Int, e: KeyEvent): Boolean {
+    private fun arriba() {
         val m = lienzo.marca
-        when (code) {
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                when (m.tipo) {
-                    Marca.CERRAR -> cerrarPap()
-                    Marca.MODO -> { lienzo.lista = aj.papReparto.coerceIn(0, Pap.REPARTOS.size - 1); lienzo.invalidate() }
-                    Marca.ALTAVOZ -> {
-                        // Izquierda → derecha → las dos → apagado.
-                        aj.papSonido = (aj.papSonido.coerceIn(0, 3) + 1) % 4
-                        lienzo.sonido = Pap.sonidos(aj.papReparto)[aj.papSonido]
-                        lienzo.apagado = aj.papSonido == 3
-                        lienzo.invalidate()
-                        Pap.aplicarSonido(this, aj)
-                    }
-                    Marca.FUENTE -> aplicarFuente(m.parte)
-                    else -> volver(m.parte)
-                }
-                return true
+        when (m.tipo) {
+            Marca.CERRAR -> cerrarPap()
+            Marca.MODO -> { lienzo.lista = aj.papReparto.coerceIn(0, Pap.REPARTOS.size - 1); lienzo.invalidate() }
+            Marca.ALTAVOZ -> {
+                // Izquierda → derecha → las dos → apagado.
+                aj.papSonido = (aj.papSonido.coerceIn(0, 3) + 1) % 4
+                lienzo.sonido = Pap.sonidos(aj.papReparto)[aj.papSonido]
+                lienzo.apagado = aj.papSonido == 3
+                lienzo.invalidate()
+                Pap.aplicarSonido(ctx, aj)
             }
+            Marca.FUENTE -> aplicarFuente(m.parte)
+            else -> volver(m.parte)
         }
-        return super.onKeyUp(code, e)
     }
 
     /** Cambia lo que va en una parte y deja manejándola. Si antes era TV, se cierra su visor. */
@@ -194,33 +205,37 @@ class SelectorPap : Activity() {
      * la ventana de esa parte (la busca por adb) y el mando va con ella. Si cambió su fuente, se abre.
      */
     private fun volver(parte: Int, cambio: Boolean = false) {
-        if (cambio) {
-            finish(); overridePendingTransition(0, 0)
-            Pap.lanzar(this, aj, parte, cambio = true)
-            return
-        }
+        cerrar()
+        if (cambio) { Pap.lanzar(ctx, aj, parte, cambio = true); return }
         aj.papParte = parte
-        Pap.aplicarSonido(this, aj)
+        Pap.aplicarSonido(ctx, aj)
         val b = Pap.busqueda(if (parte == 1) aj.papIzq else aj.papDer, parte)
         Thread {
-            val t = Adb.tareas(this)?.let { Pap.buscar(it, b) }
-            runOnUiThread {
-                if (t != null) Pap.alFrente(this, t.id) else Pap.lanzar(this, aj, parte)   // sin adb: como antes
-                finish(); overridePendingTransition(0, 0)
-            }
+            val t = Adb.tareas(ctx)?.let { Pap.buscar(it, b) }
+            principal.post { if (t != null) Pap.alFrente(ctx, t.id) else Pap.lanzar(ctx, aj, parte) }   // sin adb: como antes
         }.start()
     }
 
     private fun cerrarPap() {
-        Pap.cerrar(this, aj)
-        finish()
-        overridePendingTransition(0, 0)
+        cerrar()
+        Pap.cerrar(ctx, aj)
     }
 
     companion object {
-        /** Para que el colocador del PAP lo vuelva a poner encima si una app se le cuela. */
+        private const val TAG = "InicioTV"
         @Volatile var visible = false
         var actual: SelectorPap? = null
+
+        /** Abre el selector (o lo deja si ya está). Necesita el servicio Teclas: sin él no le llegarían las teclas. */
+        fun abrir(): Boolean {
+            if (actual != null) return true
+            val servicio = Teclas.servicio ?: return false
+            if (!Pap.lanzadoEnEsteProceso) { Ajustes(servicio).papActivo = false; return false }
+            val s = SelectorPap(servicio)
+            if (!s.poner()) return false
+            actual = s; visible = true
+            return true
+        }
     }
 
     /** Qué está marcado: una parte, la fuente de una parte o el círculo de cerrar. */

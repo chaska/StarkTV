@@ -81,16 +81,6 @@
                 android:resource="@xml/teclas" />
         </service>
 
-        <!-- Selector del PAP (recuadro sobre la parte activa). Tarea propia, por encima de las dos partes. -->
-        <activity
-            android:name=".pap.SelectorPap"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:noHistory="true"
-            android:taskAffinity="com.chaska.inicio.selector"
-            android:theme="@style/Tema.Transparente" />
-
         <!-- Fondo negro del PAP, a pantalla completa debajo de las dos partes. -->
         <activity
             android:name=".pap.FondoPap"

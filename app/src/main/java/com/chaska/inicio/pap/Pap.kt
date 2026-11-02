@@ -2,7 +2,6 @@ package com.chaska.inicio.pap
 
 import com.chaska.inicio.*
 
-import android.app.Activity
 import android.app.ActivityOptions
 import android.content.Context
 import android.content.Intent
@@ -37,8 +36,8 @@ object Pap {
         else Apps.nombre(ctx, clave)
 
     /** Límites de la parte 1 (izquierda o arriba) y la parte 2 según el reparto. */
-    fun limites(act: Activity, reparto: Int): Pair<Rect, Rect> {
-        val m = act.windowManager.maximumWindowMetrics.bounds
+    fun limites(ctx: Context, reparto: Int): Pair<Rect, Rect> {
+        val m = ctx.getSystemService(android.view.WindowManager::class.java).maximumWindowMetrics.bounds
         val w = m.width(); val h = m.height()
         return when (reparto) {
             1 -> Rect(0, 0, w * 7 / 10, h) to Rect(w * 7 / 10, 0, w, h)
@@ -60,7 +59,7 @@ object Pap {
      * Abre (o trae delante) las dos partes. [manejar] 1 o 2 es la que queda con el mando:
      * se abre la otra primero y la elegida al final.
      */
-    fun lanzar(act: Activity, aj: Ajustes, manejar: Int = 1, nuevo: Boolean = false, cambio: Boolean = false) {
+    fun lanzar(act: Context, aj: Ajustes, manejar: Int = 1, nuevo: Boolean = false, cambio: Boolean = false) {
         val (r1, r2) = limites(act, aj.papReparto)
         // Android corre 80 px una ventana libre si cae en el sitio exacto de otra (aunque esté oculta,
         // p. ej. de un PAP anterior). Al empezar de cero se cierran nuestros visores y se desplaza 0-2 px.
@@ -103,7 +102,7 @@ object Pap {
     /**
      * Las apps se abren a su manera (trampolines como YouTube, pantallas de bienvenida como TDTChannels)
      * y Android las pone donde quiere. Durante 30 s, cada segundo, se mira por adb dónde está cada parte
-     * y se mueve a su sitio; si el selector está abierto, se vuelve a poner encima.
+     * y se mueve a su sitio. El selector es una capa por encima de todo: no hace falta subirlo.
      */
     private fun colocar(ctx: Context, aj: Ajustes, objetivos: List<Pair<Pair<String, Boolean>, Rect>>, manejar: Int) {
         val mia = ++tanda
@@ -111,14 +110,19 @@ object Pap {
         Thread {
             val fin = android.os.SystemClock.uptimeMillis() + 30_000
             var activaDelante = false
+            var avisado = false
             while (android.os.SystemClock.uptimeMillis() < fin && mia == tanda && aj.papActivo) {
-                val lista = Adb.tareas(ctx) ?: break             // sin adb no se puede: se deja como está
-                var movida = false
+                // Sin adb (recién encendida la TV tarda en estar lista) se reintenta hasta el final; se avisa una vez.
+                val lista = Adb.tareas(ctx)
+                if (lista == null) {
+                    if (!avisado) { avisado = true; principal.post { avisoSinAdb(ctx) } }
+                    Thread.sleep(1000); continue
+                }
                 for ((busca, rect) in objetivos) {
                     val (afinidad, exacta) = busca
                     lista.filter { it.visible && it.modo == "freeform" && (if (exacta) it.afinidad == afinidad else it.afinidad.startsWith(afinidad)) }
                         .forEach { t ->
-                            if (t.limites != rect) { Adb.mover(ctx, t.id, rect); movida = true; Log.i(TAG, "PAP: ${t.afinidad} a $rect") }
+                            if (t.limites != rect) { Adb.mover(ctx, t.id, rect); Log.i(TAG, "PAP: ${t.afinidad} a $rect") }
                         }
                 }
                 // Cuando ya están las dos, la parte que se maneja se pone delante una vez (por si una app con
@@ -128,10 +132,37 @@ object Pap {
                     activaDelante = true
                     buscar(lista, objetivos[manejar - 1].first)?.let { t -> principal.post { alFrente(ctx, t.id) } }
                 }
-                if (movida && SelectorPap.visible) principal.post {
-                    ctx.startActivity(Intent(ctx, SelectorPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), pantallaCompleta())
-                }
                 Thread.sleep(1000)
+            }
+        }.start()
+    }
+
+    private fun avisoSinAdb(ctx: Context) = android.widget.Toast.makeText(ctx,
+        "PAP: la depuración de la TV no responde; las ventanas se colocarán cuando responda", android.widget.Toast.LENGTH_LONG).show()
+
+    /**
+     * Si Android cerró Stark TV con el PAP abierto (bloqueo, apagar y encender la TV), las apps del PAP
+     * se quedan en ventanas flotantes donde caigan y ya nadie las coloca. Al arrancar el launcher se
+     * quitan esas ventanas, para que la próxima vez se abran a pantalla completa o en un PAP nuevo.
+     * Nuestros visores y el fondo se cierran solos (ver [lanzadoEnEsteProceso]).
+     */
+    fun recoger(ctx: Context) {
+        if (lanzadoEnEsteProceso) return
+        val app = ctx.applicationContext
+        val aj = Ajustes(app)
+        Thread {
+            val fin = android.os.SystemClock.uptimeMillis() + 20_000
+            var lista: List<Adb.Tarea>? = null
+            while (lista == null && android.os.SystemClock.uptimeMillis() < fin && !lanzadoEnEsteProceso) {
+                lista = Adb.tareas(app)
+                if (lista == null) Thread.sleep(1000)
+            }
+            if (lista == null || lanzadoEnEsteProceso) return@Thread
+            if (!lanzadoEnEsteProceso) aj.papActivo = false
+            lista.filter { it.modo == "freeform" && !it.afinidad.startsWith(app.packageName) }.forEach { t ->
+                if (lanzadoEnEsteProceso) return@Thread          // se empezó un PAP mientras tanto: no se toca
+                Adb.shell(app, "am stack remove ${t.id}")
+                Log.i(TAG, "PAP: quitada la ventana suelta de ${t.afinidad}")
             }
         }.start()
     }
@@ -189,15 +220,17 @@ object Pap {
     fun activo(aj: Ajustes) = aj.papActivo && FondoPap.actual != null
 
     /** Lo único que llama el launcher: si el PAP está en marcha abre el selector; si no, lo empieza. */
-    fun empezar(act: Activity) {
+    fun empezar(act: Context) {
         val aj = Ajustes(act)
         if (activo(aj)) { selector(act); return }
         aj.papActivo = false
         lanzar(act, aj, 1, nuevo = true)
     }
 
-    fun selector(ctx: Context) =
-        ctx.startActivity(Intent(ctx, SelectorPap::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), pantallaCompleta())
+    fun selector(ctx: Context) {
+        if (!SelectorPap.abrir()) android.widget.Toast.makeText(ctx.applicationContext,
+            "PAP: falta el servicio de la tuerca de Stark TV (Accesibilidad)", android.widget.Toast.LENGTH_LONG).show()
+    }
 
     /**
      * Cierra el PAP del todo: las ventanas de las apps de cada parte (por adb), los visores de TV,
@@ -209,7 +242,7 @@ object Pap {
         val apps = listOf(aj.papIzq, aj.papDer).filter { !it.startsWith(TV) && Adb.esPaquete(it) }
         Visor.abiertos.toList().forEach { it.finishAndRemoveTask() }
         FondoPap.actual?.finishAndRemoveTask()
-        SelectorPap.actual?.finish()
+        SelectorPap.actual?.cerrar()
         val app = ctx.applicationContext
         apps.forEach { Adb.enSegundoPlano(app, "appops set $it PLAY_AUDIO allow") }      // devolverles el sonido
         Thread {

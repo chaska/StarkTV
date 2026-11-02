@@ -13,8 +13,8 @@ android {
         applicationId = "com.chaska.inicio"
         minSdk = 30
         targetSdk = 34
-        versionCode = 64
-        versionName = "0.9.39"
+        versionCode = 65
+        versionName = "0.9.40"
     }
 
     // Firma propia: si existe keystore.properties en la raíz (NUNCA va a GitHub, está en .gitignore),

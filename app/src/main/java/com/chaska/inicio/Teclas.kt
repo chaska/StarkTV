@@ -24,6 +24,9 @@ class Teclas : AccessibilityService() {
 
     override fun onInterrupt() {}
 
+    override fun onServiceConnected() { super.onServiceConnected(); servicio = this }
+    override fun onDestroy() { if (servicio === this) servicio = null; SelectorPap.actual?.cerrar(); super.onDestroy() }
+
     override fun onKeyEvent(e: KeyEvent): Boolean {
         if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0)
             // Solo para depurar (adb shell setprop log.tag.InicioTV DEBUG): no se registra lo que se pulsa.
@@ -62,6 +65,8 @@ class Teclas : AccessibilityService() {
 
     companion object {
         private const val TAG = "InicioTV"
+        /** El servicio en marcha: el selector del PAP es una capa suya. */
+        @Volatile var servicio: Teclas? = null
 
         /**
          * Android apaga el servicio al actualizar la app. Si tenemos WRITE_SECURE_SETTINGS (concedido por adb),

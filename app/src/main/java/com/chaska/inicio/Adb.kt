@@ -74,7 +74,8 @@ object Adb {
     /** Tarea de la lista de Android: número, afinidad (≈ paquete), si se ve, modo y límites. */
     class Tarea(val id: Int, val afinidad: String, val visible: Boolean, val modo: String, var limites: Rect? = null)
 
-    private val reTarea = Regex("""\* Task\{[0-9a-f]+ #(\d+) type=standard A=\d+:([\w.]+) .*?visible=(\w+).*?mode=(\w+)""")
+    // Unas tareas traen su afinidad (A=10059:com.google…) y otras solo la pantalla (I=com.mediatek…/.Clase), como Live TV.
+    private val reTarea = Regex("""\* Task\{[0-9a-f]+ #(\d+) type=standard (?:A=\d+:|I=)([\w.]+)\S* .*?visible=(\w+).*?mode=(\w+)""")
     private val reLimites = Regex("""mBounds=Rect\((-?\d+), (-?\d+) - (-?\d+), (-?\d+)\)""")
 
     /** Tareas de arriba abajo (la primera es la que está delante). */
