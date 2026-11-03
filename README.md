@@ -134,6 +134,8 @@ Si la TV va justa, apagar estos tres es lo que más se nota.
 | PAP en el dock | Una ficha de PAP en el dock. | Sí / No |
 | Empezar PAP | Lo abre ya. | — |
 
+<p align="center"><img src="docs/capturas/pap.jpg" alt="PAP mitad y mitad: TDTChannels a la izquierda y YouTube (web) a la derecha, con el monitor de recursos arriba" width="760"></p>
+
 Dentro del PAP, la **tuerca o la estrella** abren el selector (cambiar de parte, fuente, sonido y reparto, o intercambiar los lados) y **Inicio** sale del PAP y cierra sus apps.
 Límites del chip (probado en la Thomson): la antena y una app de vídeo van a la vez; la app de YouTube y dos apps de vídeo, no (solo hay un decodificador). Para TV y YouTube, «YouTube (web)».
 
