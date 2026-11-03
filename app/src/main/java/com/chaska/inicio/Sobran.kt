@@ -16,6 +16,8 @@ import org.json.JSONObject
  * - Las de Stark TV, medidas en TVs reales, con su explicación.
  * - Las «recomendadas» de Universal Android Debloater Next Generation (UAD-ng, GPL-3.0).
  * - Las de Projectivy Launcher (Xiaomi) que no estaban en UAD-ng.
+ * - Las de las listas por modelo de CleanYourTV (MIT, 428 TVs probadas), sin las que tocan la antena, el teclado,
+ *   la red o el inicio.
  * Nunca salen las que se abren desde el inicio (YouTube, Netflix…): son apps del usuario.
  */
 object Sobran {

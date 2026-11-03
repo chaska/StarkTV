@@ -37,17 +37,23 @@ open class Visor(val parte: Int) : Activity() {
             elevation = 0f
             clipToOutline = false
         }
-        // La imagen en 16:9 centrada (bandas negras), sin estirarla a la forma de la mitad.
-        val raiz = FrameLayout(this).apply {
+        // La imagen en 16:9 centrada (bandas negras), sin estirarla a la forma de la mitad. Si la ventana es más
+        // grande que la parte (ver Pap.ventanaTv), la caja negra va en el sitio de la parte y el resto es transparente.
+        val caja = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
             addView(ventana, FrameLayout.LayoutParams(0, 0, android.view.Gravity.CENTER))
         }
-        raiz.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
+        val zona = intent.getIntArrayExtra(EXTRA_ZONA)?.takeIf { it.size == 4 && it[2] > 0 && it[3] > 0 }
+        val raiz = FrameLayout(this).apply {
+            addView(caja, if (zona == null) FrameLayout.LayoutParams(-1, -1)
+                else FrameLayout.LayoutParams(zona[2], zona[3]).apply { leftMargin = zona[0]; topMargin = zona[1] })
+        }
+        caja.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
             val w = r - l; val h = b - t
             var vw = w; var vh = w * 9 / 16
             if (vh > h) { vh = h; vw = h * 16 / 9 }
             val lp = ventana.layoutParams as FrameLayout.LayoutParams
-            if (lp.width != vw || lp.height != vh) raiz.post { lp.width = vw; lp.height = vh; ventana.layoutParams = lp }
+            if (lp.width != vw || lp.height != vh) caja.post { lp.width = vw; lp.height = vh; ventana.layoutParams = lp }
         }
         setContentView(raiz)
         abiertos += this
@@ -84,6 +90,8 @@ open class Visor(val parte: Int) : Activity() {
 
     companion object {
         const val EXTRA_FUENTE = "fuente"
+        /** Sitio de la parte dentro de la ventana: izquierda, arriba, ancho y alto. */
+        const val EXTRA_ZONA = "zona"
         /** Visores abiertos, para cerrarlos al salir del PAP. */
         val abiertos = mutableSetOf<Visor>()
     }

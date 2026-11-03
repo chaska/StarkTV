@@ -1085,7 +1085,7 @@ class MainActivity : Activity() {
             aplicar()
             if (it) ventana.encender() else ventana.apagar()
         }
-        opciones("tvfuente", "Fuente de la ventana", Ajustes.FUENTES_TV, aj.tvFuente) { i ->
+        opciones("tvfuente", "Fuente de la ventana", VentanaTv.nombresFuentes(this), aj.tvFuente) { i ->
             aj.tvFuente = i
             if (aj.tvVentana) { ventana.apagar(); ventana.encender() }
         }
@@ -1119,6 +1119,24 @@ class MainActivity : Activity() {
         interruptor("papdock", "PAP en el dock", aj.papDock) { aj.papDock = it; pintarCarrusel(true) }
         nueva("papempezar", "Empezar PAP", "›") { dialogo?.dismiss(); Pap.empezar(this) }
 
+        // Apagar y encender (ideas de CleanYourTV): temporizador, volumen de noche y qué se abre al encender.
+        seccion("Encendido")
+        opciones("apagar", "Apagar la TV en", Encendido.MINUTOS_APAGAR.map { Encendido.texto(it) },
+            Encendido.MINUTOS_APAGAR.indexOf(Encendido.minutosElegidos(aj)).coerceAtLeast(0)) { i ->
+            Encendido.apagarEn(this, Encendido.MINUTOS_APAGAR[i])
+        }
+        opciones("volnoche", "Volumen máximo de noche", Encendido.TOPES_NOCHE.map { if (it == 0) "Sin límite" else "$it %" },
+            Encendido.TOPES_NOCHE.indexOf(aj.volNoche).coerceAtLeast(0)) { i ->
+            aj.volNoche = Encendido.TOPES_NOCHE[i]; Encendido.limitar(this)
+        }
+        opciones("horanoche", "Horas de noche", Encendido.HORAS_NOCHE, aj.horaNoche.coerceIn(0, 2)) { i ->
+            aj.horaNoche = i; Encendido.limitar(this)
+        }
+        val alEncender = listOf("" to "El inicio de Stark TV", Encendido.TV to "La TV (antena)") +
+            Apps.todas(this).map { it to Apps.nombre(this, it) }.sortedBy { it.second.lowercase() }
+        opciones("alencender", "Al encender la TV, abrir", alEncender.map { it.second },
+            alEncender.indexOfFirst { it.first == aj.alEncender }.coerceAtLeast(0)) { i -> aj.alEncender = alEncender[i].first }
+
         seccion("Sistema")
         nueva("adb", "Permisos avanzados (adb)", if (Adb.conectado) "Conectado" else "Pulsa para conectar  ›") { f ->
             f.valor.text = "Conectando…"
@@ -1132,6 +1150,14 @@ class MainActivity : Activity() {
         nueva("pordefecto", "Launcher por defecto", acc = sw) { cambiarPorDefecto(!esPorDefecto()) }
 
         nueva("sobran", "Apps que sobran", "Elegir  ›") { abrirSobran() }
+        interruptor("monitor", "Monitor de recursos (CPU, memoria, disco)", aj.monitor) { aj.monitor = it; Monitor.aplicar(this) }
+        opciones("dormir", "Dormir Play Store hasta que la abras", Encendido.MINUTOS_DORMIR.map {
+            if (it < 0) "No" else "Sí, a los $it min en el inicio"
+        }, Encendido.MINUTOS_DORMIR.indexOf(aj.dormirMin).coerceAtLeast(0)) { i -> aj.dormirMin = Encendido.MINUTOS_DORMIR[i] }
+        nueva("liberar", "Liberar caché y memoria", "Pulsa si la TV va lenta  ›") { f ->
+            f.valor.text = "Liberando…"
+            Monitor.liberar(this) { t -> f.valor.text = t }
+        }
         nueva("copia", "Copia de ajustes", "Guardar o recuperar  ›") { elegirCopia() }
         panel.addView(nota("Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName} · Desarrollado por ChasKa · Licencia GPL v3"))
 
@@ -1205,7 +1231,7 @@ class MainActivity : Activity() {
         val sel = aj.colorSel
         val panel = Vidrio.panel(this, "Ventana de TV", dp(280), Icono.Tipo.TV)
         val g = grupo()
-        Ajustes.FUENTES_TV.forEachIndexed { i, nombre ->
+        VentanaTv.nombresFuentes(this).forEachIndexed { i, nombre ->
             anadirAGrupo(g, Fila(this, nombre, sel).apply {
                 if (i == aj.tvFuente) accesorio = View(this@MainActivity).apply {
                     background = icono(Icono.Tipo.CHECK, sel, 18)

@@ -98,6 +98,7 @@
         <!-- Visores de TV del PAP: uno por mitad, cada uno en su tarea para poder estar a la vez. -->
         <activity
             android:name=".pap.VisorIzq"
+            android:theme="@style/Tema.Transparente"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:excludeFromRecents="true"
             android:exported="false"
@@ -106,6 +107,7 @@
             android:taskAffinity="com.chaska.inicio.pap1" />
         <activity
             android:name=".pap.VisorDer"
+            android:theme="@style/Tema.Transparente"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:excludeFromRecents="true"
             android:exported="false"

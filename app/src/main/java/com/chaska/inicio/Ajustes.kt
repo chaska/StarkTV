@@ -47,6 +47,11 @@ class Ajustes(ctx: Context) {
     var relojPos by entero("reloj_pos", 0)      // 0 automático (lado libre), 1 izquierda, 2 derecha
     var rotarMin by entero("rotar_min", 0)      // 0 = no cambiar el fondo solo
     var salvaMin by entero("salva_min", 10)     // 0 = sin salvapantallas
+    var volNoche by entero("vol_noche", 0)      // volumen máximo de noche en % (Encendido.TOPES_NOCHE); 0 = sin tope
+    var horaNoche by entero("hora_noche", 0)    // índice de Encendido.HORAS_NOCHE
+    var dormirMin by entero("dormir_min", -1)  // apps dormidas (Encendido.DORMIDAS): minutos en el inicio antes de pararlas; -1 = no
+    var monitor by booleano("monitor", false)     // línea de procesador, memoria y disco encima de todo (Monitor.kt)
+    var alEncender by texto("al_encender", "")  // al encender la TV: "" el inicio, Encendido.TV o el paquete de una app
     var color by entero("color", 0)
     var reflejo by booleano("reflejo", true)
     var cristal by booleano("cristal", true)

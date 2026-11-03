@@ -190,13 +190,11 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
     /** HDMI 1-3 o AV: entradas directas (passthrough), no necesitan canal. */
     private fun externa(tim: TvInputManager?, fuente: Int) {
         val todas = tim?.tvInputList ?: emptyList()
-        val hdmi = todas.filter { it.type == TvInputInfo.TYPE_HDMI }.map { it.id }.sorted()
-        val av = todas.filter { it.type == TvInputInfo.TYPE_COMPOSITE }.map { it.id }.sorted()
-        val id = if (fuente <= 3) hdmi.getOrNull(fuente - 1) else av.firstOrNull()
+        val id = puerto(todas, fuente)?.id
         canales = emptyList()
         entrada = null
         entradaExterna = id
-        rotulo.text = listOf("HDMI 1", "HDMI 2", "HDMI 3", "AV").getOrElse(fuente - 1) { "Entrada" }
+        rotulo.text = nombresFuentes(context).getOrElse(fuente) { "Entrada" }
         if (id == null) { estado.visibility = View.VISIBLE; estado.text = "Esta TV no tiene esa entrada"; return }
         estado.visibility = View.VISIBLE
         estado.text = "Conectando…"
@@ -465,6 +463,36 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
 
     companion object {
         const val TAG = "InicioTV"
+
+        /**
+         * Entrada de la TV para la fuente [fuente] (1-3 HDMI, 4 AV). Solo los puertos: los aparatos que se anuncian
+         * por HDMI-CEC salen como entradas «hijas» del suyo y, si se contaran, correrían los números.
+         */
+        fun puerto(todas: List<TvInputInfo>, fuente: Int): TvInputInfo? {
+            val tipo = if (fuente <= 3) TvInputInfo.TYPE_HDMI else TvInputInfo.TYPE_COMPOSITE
+            val l = todas.filter { it.type == tipo && it.parentId == null }.sortedBy { it.id }
+            return if (fuente <= 3) l.getOrNull(fuente - 1) else l.firstOrNull()
+        }
+
+        /**
+         * Nombres de las fuentes (Antena, HDMI 1-3, AV) como los ve el usuario: el que se le puso en los ajustes de
+         * la TV o el que da el propio aparato por HDMI-CEC («PlayStation 5»), con el puerto al lado. Idea del
+         * módulo Sources de CleanYourTV (MIT).
+         */
+        fun nombresFuentes(ctx: Context): List<String> {
+            val tim = ctx.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
+            val todas = try { tim?.tvInputList ?: emptyList() } catch (e: Exception) { emptyList() }
+            return Ajustes.FUENTES_TV.mapIndexed { i, base ->
+                val p = if (i == 0) null else puerto(todas, i) ?: return@mapIndexed base
+                if (p == null) return@mapIndexed base
+                val propio = try { p.loadCustomLabel(ctx)?.toString() } catch (e: Exception) { null }?.takeIf { it.isNotBlank() && it != base }
+                val aparato = todas.firstOrNull { it.parentId == p.id }
+                    ?.let { try { it.loadCustomLabel(ctx)?.toString()?.takeIf { s -> s.isNotBlank() } ?: it.loadLabel(ctx).toString() } catch (e: Exception) { null } }
+                    ?.takeIf { it.isNotBlank() && it != base }
+                val nombre = propio ?: aparato
+                if (nombre == null) base else "$nombre ($base)"
+            }
+        }
         const val K_PROPIOS = "canales_propios"
         const val K_NUMEROS = "canales_numeros"
         const val K_RADIOS = "canales_radios"

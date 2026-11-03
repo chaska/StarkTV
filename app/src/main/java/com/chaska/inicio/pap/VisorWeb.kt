@@ -24,11 +24,27 @@ import android.widget.FrameLayout
  */
 open class VisorWeb(val parte: Int) : Activity() {
     private lateinit var web: WebView
+    private var conSonido = true
+    private val guardar = Runnable { guardarSesion() }
+
+    /** La parte que no suena se calla dentro de la web (YouTube crea vídeos nuevos: se vigila la página). */
+    fun sonido(si: Boolean) {
+        conSonido = si
+        if (::web.isInitialized) web.evaluateJavascript(MUDO.replace("MUDO", (!si).toString()), null)
+    }
+
+    /** Las cookies de la sesión a disco; también cada minuto, porque YouTube las renueva mientras se ve. */
+    private fun guardarSesion() {
+        CookieManager.getInstance().flush()
+        if (::web.isInitialized) { web.removeCallbacks(guardar); web.postDelayed(guardar, 60_000) }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (!Pap.lanzadoEnEsteProceso) { Ajustes(this).papActivo = false; finishAndRemoveTask(); return }   // reabierto por Android
+        // Solo en las versiones de prueba: la web se puede inspeccionar desde el PC (chrome://inspect).
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
         web = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -38,6 +54,7 @@ open class VisorWeb(val parte: Int) : Activity() {
             // La web de YouTube TV solo se abre como en una tele (el navegador de la app de YouTube, Cobalt).
             settings.userAgentString = UA
             webViewClient = object : WebViewClient() {
+                override fun onPageFinished(v: WebView, url: String?) { sonido(conSonido); guardarSesion() }
                 // Solo YouTube y el inicio de sesión de Google; cualquier otro enlace no se abre aquí.
                 override fun shouldOverrideUrlLoading(v: WebView, r: android.webkit.WebResourceRequest) =
                     r.url.host?.let { h -> PERMITIDOS.none { h == it || h.endsWith(".$it") } } ?: true
@@ -71,6 +88,7 @@ open class VisorWeb(val parte: Int) : Activity() {
         // se aceptan las dos y se guardan en disco al salir (ver onPause), si no al cerrar el PAP se perdía.
         CookieManager.getInstance().apply { setAcceptCookie(true); setAcceptThirdPartyCookies(web, true) }
         web.requestFocus()
+        conSonido = Pap.suena(Ajustes(this), parte)
         web.loadUrl(URL)
         abiertos += this
     }
@@ -82,9 +100,12 @@ open class VisorWeb(val parte: Int) : Activity() {
         super.onPause()
     }
 
+    override fun onStop() { CookieManager.getInstance().flush(); super.onStop() }
+
     override fun onDestroy() {
         abiertos -= this
-        if (::web.isInitialized) web.destroy()
+        if (::web.isInitialized) { web.removeCallbacks(guardar); web.destroy() }
+        CookieManager.getInstance().flush()
         super.onDestroy()
     }
 
@@ -98,6 +119,10 @@ open class VisorWeb(val parte: Int) : Activity() {
 
     companion object {
         const val URL = "https://www.youtube.com/tv"
+        private const val MUDO = "(function(m){window.__starkMudo=m;function f(){document.querySelectorAll('video,audio').forEach(function(v){v.muted=window.__starkMudo})}" +
+            "f();if(!window.__starkObs){window.__starkObs=new MutationObserver(f);window.__starkObs.observe(document.documentElement,{childList:true,subtree:true});" +
+            "document.addEventListener('volumechange',function(e){if(e.target.muted!==window.__starkMudo)e.target.muted=window.__starkMudo},true);" +
+            "document.addEventListener('playing',f,true)}})(MUDO)"
         private const val ANCHO_CSS = 1280
         private val PERMITIDOS = listOf("youtube.com", "google.com", "googlevideo.com", "ytimg.com", "gstatic.com", "youtube-nocookie.com", "yt.be", "youtu.be")
         private const val UA = "Mozilla/5.0 (Linux armeabi-v7a; Android 14) Cobalt/25.lts.30.1034943-gold (unlike Gecko) v8/8.8.278.17-jit gles Starboard/15, Thomson_ATV_2K/14 (Thomson, TV) com.google.android.youtube.tv/5.30.320"

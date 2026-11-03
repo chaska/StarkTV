@@ -31,14 +31,26 @@ object Pap {
     /** Lo que se puede poner en una parte: las fuentes de TV, YouTube (web) y las apps que no están ocultas en el dock. */
     fun opciones(ctx: Context): List<Pair<String, String>> {
         val ocultas = ListaApps(ctx, Ajustes(ctx).p).ocultas()
-        return Ajustes.FUENTES_TV.mapIndexed { i, n -> "$TV$i" to n } + listOf(YOUTUBE_WEB to "YouTube (web)") +
+        return VentanaTv.nombresFuentes(ctx).mapIndexed { i, n -> "$TV$i" to n } + listOf(YOUTUBE_WEB to "YouTube (web)") +
             Apps.todas(ctx).filter { it !in ocultas }.map { it to Apps.nombre(ctx, it) }.sortedBy { it.second.lowercase() }
     }
 
     fun nombre(ctx: Context, clave: String): String =
         if (clave == YOUTUBE_WEB) "YouTube (web)"
-        else if (clave.startsWith(TV)) Ajustes.FUENTES_TV.getOrElse(clave.removePrefix(TV).toIntOrNull() ?: 0) { "TV" }
+        else if (clave.startsWith(TV)) VentanaTv.nombresFuentes(ctx).getOrElse(clave.removePrefix(TV).toIntOrNull() ?: 0) { "TV" }
         else Apps.nombre(ctx, clave)
+
+    /**
+     * Ventana de una parte con TV. El chip de la TV (MediaTek, visto en la Thomson el 02/11) coloca la imagen
+     * sumando la posición de la ventana sin escalarla a su panel: en la parte derecha salía corrida a la
+     * izquierda. Dentro de la ventana sí escala bien (la MiniTV del inicio). Si la parte no empieza en la
+     * esquina, la ventana va desde el borde (transparente) y la imagen se pone dentro, en su sitio.
+     */
+    fun ventanaTv(ctx: Context, parte: Rect, n: Int): Rect {
+        if (parte.left <= 4 && parte.top <= 4) return parte
+        val m = ctx.getSystemService(android.view.WindowManager::class.java).maximumWindowMetrics.bounds
+        return Rect(n - 1, 0, m.width(), m.height())                 // 1 px de diferencia si hay TV en las dos
+    }
 
     /** Límites de la parte 1 (izquierda o arriba) y la parte 2 según el reparto. */
     fun limites(ctx: Context, reparto: Int): Pair<Rect, Rect> {
@@ -114,20 +126,25 @@ object Pap {
         // En PIP la ventana pequeña (parte 2) se abre la última para que quede encima.
         val orden = if (manejar == 1 && !esPip(aj.papReparto)) listOf(1, 0) else listOf(0, 1)
         // La misma app en las dos partes (ajuste guardado de antes): solo se coloca en la primera.
-        val objetivos = listOf(busqueda(aj.papIzq, 1) to Rect(r1), busqueda(aj.papDer, 2) to Rect(r2)).distinctBy { it.first }
+        val sitio = { clave: String, r: Rect, n: Int -> if (clave.startsWith(TV)) ventanaTv(act, r, n) else Rect(r) }
+        val objetivos = listOf(busqueda(aj.papIzq, 1) to sitio(aj.papIzq, r1, 1), busqueda(aj.papDer, 2) to sitio(aj.papDer, r2, 2))
+            .distinctBy { it.first }
         aj.papActivo = true
         aj.papParte = manejar
         lanzadoEnEsteProceso = true
         for (i in orden) {
             val (clave, rect, parte) = partes[i]
+            val ventana = sitio(clave, rect, parte)
             val intent = when {
                 clave.startsWith(TV) -> Intent(act, if (parte == 1) VisorIzq::class.java else VisorDer::class.java)
-                    .putExtra(Visor.EXTRA_FUENTE, clave.removePrefix(TV).toIntOrNull() ?: 0).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .putExtra(Visor.EXTRA_FUENTE, clave.removePrefix(TV).toIntOrNull() ?: 0)
+                    .putExtra(Visor.EXTRA_ZONA, intArrayOf(rect.left - ventana.left, rect.top - ventana.top, rect.width(), rect.height()))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 clave == YOUTUBE_WEB -> Intent(act, if (parte == 1) VisorWebIzq::class.java else VisorWebDer::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 else -> Apps.intentDe(act, clave) ?: continue
             }
-            try { act.startActivity(intent, opciones(rect, MODO_VENTANA)) }
+            try { act.startActivity(intent, opciones(ventana, MODO_VENTANA)) }
             catch (e: Exception) { Log.w(TAG, "PAP: no se pudo abrir $clave: $e") }
         }
         colocar(act.applicationContext, aj, objetivos, manejar)
@@ -227,6 +244,8 @@ object Pap {
         for ((parte, clave) in listOf(1 to aj.papIzq, 2 to aj.papDer)) {
             val si = suena(aj, parte)
             if (clave.startsWith(TV)) Visor.abiertos.filter { it.parte == parte }.forEach { it.sonido(si) }
+            // YouTube (web) va dentro de Stark TV: appops lo dejaría sonando (o callaría la antena); se calla la web.
+            else if (clave == YOUTUBE_WEB) VisorWeb.abiertos.filter { it.parte == parte }.forEach { it.sonido(si) }
             else if (Adb.esPaquete(clave)) Adb.enSegundoPlano(ctx, "appops set $clave PLAY_AUDIO ${if (si) "allow" else "ignore"}")
         }
     }

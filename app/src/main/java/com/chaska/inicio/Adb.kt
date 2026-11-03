@@ -29,10 +29,13 @@ object Adb {
     private val rePaquete = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")
     /** Caracteres que usan nuestras órdenes; con cualquier otro (| & $ ` > ' " salto de línea…) no se ejecuta. */
     private val reOrden = Regex("^[A-Za-z0-9 ._;=-]+$")
+    /** Órdenes fijas que llevan algún carácter de fuera de la lista (una ruta): se aceptan tal cual, sin nada más. */
+    const val PROC_STAT = "head -n 1 /proc/stat"
+    private val FIJAS = setOf(PROC_STAT)
 
     /** Ejecuta una orden de shell; null si no hay conexión o si la orden trae algo raro. Bloquea: no llamar en el hilo principal. */
     @Synchronized
-    fun shell(ctx: Context, orden: String): String? = if (!reOrden.matches(orden)) {
+    fun shell(ctx: Context, orden: String): String? = if (orden !in FIJAS && !reOrden.matches(orden)) {
         Log.w(TAG, "adb: orden rechazada por caracteres no permitidos")
         null
     } else try {

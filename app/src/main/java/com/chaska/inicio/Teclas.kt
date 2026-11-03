@@ -26,7 +26,10 @@ class Teclas : AccessibilityService() {
     private fun despues(accion: () -> Unit) { luego.post(accion) }
 
     override fun onAccessibilityEvent(e: AccessibilityEvent) {
-        if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) e.packageName?.toString()?.let { delante = it }
+        if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) e.packageName?.toString()?.let {
+            if (it != delante) Encendido.delante(this, it)
+            delante = it
+        }
     }
 
     override fun onInterrupt() {}
@@ -47,6 +50,8 @@ class Teclas : AccessibilityService() {
             addDataScheme("package")
         })
         Sobran.repasar(this, siempre = true)                // tras encender la TV, con reintentos
+        Encendido.empezar(this, recienEncendida = android.os.SystemClock.elapsedRealtime() < 3 * 60_000L)
+        Monitor.aplicar(this)
         // TVs con MediaTek: cada cambio de canal (en su app de TV o en la nuestra) se anuncia con su número.
         try {
             registerReceiver(avisosMtk, android.content.IntentFilter(VentanaTv.AVISO_MTK), android.content.Context.RECEIVER_EXPORTED)
@@ -79,6 +84,8 @@ class Teclas : AccessibilityService() {
         if (servicio === this) servicio = null
         try { unregisterReceiver(cambiosDeApps) } catch (e: Exception) { }
         try { unregisterReceiver(avisosMtk) } catch (e: Exception) { }
+        Encendido.parar(this)
+        Monitor.quitar()
         SelectorPap.actual?.cerrar(); super.onDestroy()
     }
 
@@ -86,6 +93,11 @@ class Teclas : AccessibilityService() {
         if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0)
             // Solo para depurar (adb shell setprop log.tag.InicioTV DEBUG): no se registra lo que se pulsa.
             if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, "tecla ${e.keyCode} ${KeyEvent.keyCodeToString(e.keyCode)} scan=${e.scanCode} delante=$delante")
+        // Último minuto del temporizador de apagado: OK sigue viendo (y no va a la app).
+        if (Encendido.avisando && (e.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || e.keyCode == KeyEvent.KEYCODE_ENTER)) {
+            if (e.action == KeyEvent.ACTION_UP) despues { Encendido.seguirViendo(this) }
+            return true
+        }
         // Con el PAP en marcha, Android TV no vuelve al inicio con la tecla Inicio (intenta abrir
         // «todas las apps» y falla). Inicio corto abre el selector; mantenido, sale del PAP.
         // Selector del PAP abierto (no tiene foco, para no molestar a la app de debajo): las teclas van a él.

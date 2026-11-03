@@ -34,11 +34,13 @@ funcionar lo básico; la ventanita de TV y el PAP dependen de cómo el fabricant
 - TV en directo dentro del inicio: **antena (TDT), HDMI 1-3 o AV**, en una esquina a elegir o automática; se aparta sola del dock.
 - CH+ / CH− cambian de canal; OK mantenido abre su menú (fuente, posición, sonido).
 - Sonido activable y **nombre del canal y la fuente ocultable**.
+- Las entradas HDMI salen con el nombre que da el aparato por HDMI-CEC o el que se les puso en la TV («PlayStation 5 (HDMI 2)»).
 
 ### PAP y PIP (dos cosas a la vez)
 - Dos apps o la TV y una app **una al lado de otra** o una **dentro de otra**, con varios repartos de pantalla (50/50, 70/30, arriba y abajo, PIP en las 4 esquinas).
 - Fuentes: **Antena, HDMI 1-3, AV**, **YouTube (web)** (youtube.com/tv en una ventana propia, cae justo en su parte) y las apps instaladas que no estén ocultas en el dock. La misma app no se puede poner en las dos partes.
-- Se elige qué parte suena (una, la otra o las dos).
+- Se elige qué parte suena (una, la otra o las dos); con YouTube (web) también.
+- La antena se coloca bien en cualquier parte (a la derecha, abajo o en el PIP pequeño).
 - **Tuerca o estrella** del mando: selector (cambiar de parte, fuente, sonido y modo); mantenida, cierra el PAP. **Inicio**: sale del PAP y cierra sus apps.
 - Cada parte se abre ya con su tamaño, sin depuración. Con la depuración (adb), además se recolocan las apps que se abren a través de otra pantalla (como la app de YouTube) y se cierran del todo al salir.
 - Límites del chip de la TV (probado en la Thomson): la **antena y una app de vídeo** normal (TDTChannels…) van a la vez; la **app de YouTube** se queda la vía de vídeo de la antena y **dos apps de vídeo** no caben a la vez (solo hay un decodificador). Para TV + YouTube, «YouTube (web)».
@@ -66,10 +68,13 @@ Ver «Seguridad» más abajo.
 - Efectos que se pueden apagar si la TV va justa: reflejo en el suelo, cristal difuminado y animaciones de luz.
 
 ### Ajustes
-- Ajustes al estilo iPhone, por pestañas (Fondo, Dock, Reloj, Pantalla, MiniTV, Efectos, PAP, Sistema), todo con el mando (◀ ▶ cambian los valores).
+- Ajustes al estilo iPhone, por pestañas (Fondo, Dock, Reloj, Pantalla, MiniTV, Efectos, PAP, Encendido, Sistema), todo con el mando (◀ ▶ cambian los valores).
+- **Encendido**: apagar la TV en 15 min a 2 h (aviso un minuto antes; OK sigue viendo), volumen máximo de noche (10-50 %, de 22 a 8, de 20 a 7 o todo el día) y qué abrir al encender la TV (el inicio, la antena o una app).
 - Acceso directo a los ajustes de la TV, apps ocultas y copia de seguridad de los ajustes.
 - **Estrella** del mando en el inicio: los favoritos de Stark TV (no los de Android).
 - **Apps que sobran** (*Sistema*): las apps de esa TV que se pueden desactivar (anuncios, canales FAST, menús de fábrica, informes…), explicadas en español, con interruptor (encendido = funcionando) y «Volver a activar todas». Stark TV las vuelve a desactivar al encender y cuando Google Play las actualiza. Necesita la depuración.
+- **Monitor de recursos** (*Sistema*): una línea arriba, encima de cualquier app, con procesador, memoria y disco, cada 3 s (el procesador, con la depuración).
+- **Liberar caché y memoria** (*Sistema*): borra la caché de todas las apps y cierra las de segundo plano, y dice cuánto ha liberado. **Dormir Play Store** hasta que se abra: se para al encender y a los minutos de volver al inicio.
 
 ## Seguridad
 
@@ -173,9 +178,10 @@ Se distribuye SIN NINGUNA GARANTÍA. El texto completo está en [`LICENSE`](LICE
 | Tipografías de [Google Fonts](https://fonts.google.com): DM Sans, Lexend, Manrope, Montserrat, Outfit, Plus Jakarta Sans, Poppins, Sora, Space Grotesk y Urbanist | Tipografías de la interfaz | SIL Open Font License 1.1 (textos en `app/src/main/assets/fuentes/licencias`) |
 | [Open-Meteo](https://open-meteo.com) | Datos del tiempo y búsqueda de la ciudad (sin clave, por HTTPS) | Datos bajo CC BY 4.0 — *Weather data by Open-Meteo.com* |
 | Android SDK de Google | Base de la app | Apache License 2.0 |
+| Ideas de [CleanYourTV](https://github.com/Gathin23/cleanyourtv) (Gathin y colaboradores): listas por modelo y los módulos Sources, Sleep Timer, Quiet Hours y Open on wake | Apps que sobran, nombres de las fuentes, pestaña Encendido | MIT |
 
 Las imágenes de los fondos *Castillo*, *Halloween* y *Santa's Day* y los iconos de la interfaz son aportados por ChasKa para este proyecto.
 Android y Android TV son marcas de Google LLC; Thomson es marca de su titular. Este proyecto no está afiliado a ninguna de ellas.
 
 ### Listas de «Apps que sobran»
-La lista de `app/src/main/assets/sobran.json` junta las medidas por Stark TV en TVs reales, las marcadas como «recomendadas» por [Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation) (GPL-3.0) y, para contrastar, las de [Projectivy Launcher](https://github.com/spocky/miproja1) que faltaban. Stark TV solo enseña las que hay en cada TV, nunca las apps que se abren desde el inicio, y todo se puede volver a activar.
+La lista de `app/src/main/assets/sobran.json` junta las medidas por Stark TV en TVs reales, las marcadas como «recomendadas» por [Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation) (GPL-3.0) y, para contrastar, las de [Projectivy Launcher](https://github.com/spocky/miproja1) que faltaban y las de las 428 TVs probadas de [CleanYourTV](https://github.com/Gathin23/cleanyourtv) (MIT, © 2026 Gathin), con la explicación traducida; las que tocan la antena, el teclado, la red o el inicio se dejaron fuera. Stark TV solo enseña las que hay en cada TV, nunca las apps que se abren desde el inicio, y todo se puede volver a activar.
