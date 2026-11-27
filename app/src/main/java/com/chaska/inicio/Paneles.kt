@@ -105,7 +105,14 @@ class Fila(ctx: Context, titulo: String, sel: Int, icono: Icono.Tipo? = null, di
         set(v) {
             field?.let { removeView(it) }
             field = v
-            if (v != null) addView(v)
+            // Hueco antes del accesorio: si la fila trae texto en «valor» (p. ej. «Desactivada»), no queda
+            // pegado al interruptor. Se respetan las medidas que ya traiga (las marcas de ✓ fijan su tamaño).
+            if (v != null) {
+                val lp = v.layoutParams as? LayoutParams
+                    ?: LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                lp.marginStart = context.dp(10)
+                addView(v, lp)
+            }
         }
 
     init {

@@ -65,6 +65,8 @@ class MainActivity : Activity() {
     private var dialogo: Dialog? = null
     /** Interruptor «Launcher por defecto» de Ajustes, para ponerlo al día al volver de los ajustes del sistema. */
     private var swPorDefecto: Interruptor? = null
+    /** Si ya se tenía el rol de inicio en el último `onStart` (para notar cuándo se acaba de conceder). */
+    private var eraPorDefecto = false
     private var moviendo: Ficha? = null
     private var firma = ""
     private var textoTiempo: String? = null
@@ -119,7 +121,13 @@ class MainActivity : Activity() {
         Sobran.repasar(this)                               // «Apps que sobran»: como mucho cada 10 minutos
         // Se ha vuelto al inicio con el PAP a medias (otra tecla, otra app): se cierra del todo para que no siga sonando.
         if (aj.papActivo && !com.chaska.inicio.pap.FondoPap.visible) com.chaska.inicio.pap.Pap.cerrar(this, aj, irAlInicio = false)
-        swPorDefecto?.encendido = esPorDefecto()
+        val yaEsDefecto = esPorDefecto()
+        // Se acaba de conceder el rol de inicio: en algunas TVs (las de «Google TV», con su launcher nuevo,
+        // 27/11) eso no basta, porque su propio inicio se cuela igual al pulsar el botón. Hay que desactivarlo
+        // por adb; sin conexión no se puede, pero el rol ya queda pedido y se reintenta al volver a arrancar.
+        if (yaEsDefecto && !eraPorDefecto) Adb.enSegundoPlano(this, OTROS_INICIOS.joinToString("; ") { "pm disable-user --user 0 $it" })
+        eraPorDefecto = yaEsDefecto
+        swPorDefecto?.encendido = yaEsDefecto
         aplicar()
         fondo.mostrar(aj.fondo)
         pintarCarrusel()
@@ -703,7 +711,7 @@ class MainActivity : Activity() {
                 startActivity(ver, Pap.pantallaCompleta()); return
             } catch (e: Exception) { android.util.Log.w("InicioTV", "no se pudo abrir el canal $uri: $e") }
         }
-        val tdt = listOf("com.mediatek.wwtv.tvcenter", "com.google.android.tv", "com.android.tv").firstOrNull { Apps.intentDe(this, it) != null }
+        val tdt = VentanaTv.APPS_TV.firstOrNull { Apps.intentDe(this, it) != null }
         if (tdt != null) abrir(tdt) else { avisar("No encuentro la app de TV de la tele"); if (aj.tvVentana) ventana.encender() }
     }
 
@@ -1159,6 +1167,21 @@ class MainActivity : Activity() {
             Monitor.liberar(this) { t -> f.valor.text = t }
         }
         nueva("copia", "Copia de ajustes", "Guardar o recuperar  ›") { elegirCopia() }
+        nueva("actualizar", "Buscar actualización", "Pulsa para comprobar  ›") { f ->
+            f.valor.text = "Buscando…"
+            Actualizar.comprobar(this) { nueva, error ->
+                when {
+                    error != null -> f.valor.text = error
+                    nueva == null -> f.valor.text = "Ya tienes la última"
+                    else -> AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                        .setTitle("Versión ${nueva.version}")
+                        .setMessage(nueva.notas)
+                        .setPositiveButton("Instalar") { _, _ -> Actualizar.descargar(this, nueva) { t -> f.valor.text = t } }
+                        .setNegativeButton("Ahora no") { _, _ -> f.valor.text = "Hay una versión nueva: ${nueva.version}  ›" }
+                        .show()
+                }
+            }
+        }
         panel.addView(nota("Stark TV ${packageManager.getPackageInfo(packageName, 0).versionName} · Desarrollado por ChasKa · Licencia GPL v3"))
 
         val dl = Vidrio.dialogo(this, panel, aj, Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, dp(20),
@@ -1175,9 +1198,17 @@ class MainActivity : Activity() {
     private fun esPorDefecto() = getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_HOME) == true
 
     /**
-     * Encender: Android pregunta si usar Stark TV como inicio.
-     * Apagar: si el inicio de Google está desactivado, se abre su ficha para pulsar «Activar»;
-     * si ya está activo, la pantalla (escondida en Android TV) para elegir el inicio.
+     * El inicio propio de la TV que, en algunos modelos, se cuela por delante al pulsar el botón aunque Stark TV
+     * ya tenga el rol de inicio: el clásico de Android TV y el nuevo de «Google TV» (con filas de recomendaciones,
+     * visto el 27/11 en una TCL). Se amplía según se prueben más TVs (lo siguiente, dos Xiaomi de esta casa).
+     */
+    private val OTROS_INICIOS = listOf("com.google.android.tvlauncher", "com.google.android.apps.tv.launcherx")
+
+    /**
+     * Encender: Android pregunta si usar Stark TV como inicio; si eso no basta en esta TV, `onStart` lo remata
+     * desactivando el inicio propio de la TV por adb en cuanto se concede el rol.
+     * Apagar: se reactiva por adb el inicio propio que se hubiera desactivado, para que vuelva a ponerse él solo.
+     * Sin adb, o si no había ninguno que devolver (otra marca no vista todavía), la pantalla para elegir el inicio.
      */
     private fun cambiarPorDefecto(serlo: Boolean) {
         if (serlo) {
@@ -1186,15 +1217,11 @@ class MainActivity : Activity() {
             } catch (e: Exception) { abrirElegirInicio() }
             return
         }
-        val google = "com.google.android.tvlauncher"
-        val activo = try { packageManager.getApplicationInfo(google, 0).enabled } catch (e: Exception) { false }
-        if (!activo) {
-            avisar("Pulsa «Activar» y vuelve con Atrás")
-            try {
-                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", google, null))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            } catch (e: Exception) { avisar("No encuentro el inicio de Google") }
-        } else abrirElegirInicio()
+        val desactivados = OTROS_INICIOS.filter { p -> try { !packageManager.getApplicationInfo(p, 0).enabled } catch (e: Exception) { false } }
+        if (desactivados.isEmpty()) { abrirElegirInicio(); return }
+        if (!Adb.conectado) { avisar("Conecta «Permisos avanzados (adb)» para devolver el inicio de la TV"); return }
+        avisar("Devolviendo el inicio de la TV…")
+        Adb.enSegundoPlano(this, desactivados.joinToString("; ") { "pm enable $it" })
     }
 
     private fun abrirElegirInicio() {
@@ -1480,8 +1507,13 @@ class MainActivity : Activity() {
             val buscar = Fila(this, if (l.isEmpty()) "Buscar canales" else "Volver a buscar", aj.colorSel)
             buscar.valor.text = "Tarda unos minutos"
             buscar.setOnClickListener {
-                buscar.valor.text = "Empezando…"
-                vista.buscarCanales({ fila, n -> buscar.valor.text = "Probando $fila · $n canales" }) { pintar() }
+                buscar.valor.text = "Preguntando a la app de TV…"
+                // Antes de adivinar, se le pregunta a la app de TV de la tele dónde se ha quedado (más fiable
+                // y mucho más rápido que probar filas sueltas; ver VentanaTv.preguntarAFabricante).
+                VentanaTv.preguntarAFabricante(this) { ancla ->
+                    buscar.valor.text = "Empezando…"
+                    vista.buscarCanales(ancla, { fila, n -> buscar.valor.text = "Probando $fila · $n canales" }) { pintar() }
+                }
             }
             cuerpo.addView(buscar)
             if (l.isEmpty()) {

@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><img src="https://img.shields.io/badge/versión-0.9.41-f2a93b?style=flat-square" alt="Versión 0.9.41"></a>
+  <a href="../../releases/latest"><img src="https://img.shields.io/badge/versión-0.9.42-f2a93b?style=flat-square" alt="Versión 0.9.42"></a>
   <img src="https://img.shields.io/badge/Android%20TV-11%20o%20superior-3ccb8f?style=flat-square" alt="Android TV 11 o superior">
   <img src="https://img.shields.io/badge/licencia-GPL--3.0-4fa3f7?style=flat-square" alt="Licencia GPL-3.0">
   <img src="https://img.shields.io/badge/APK-4%20MB-a77bf3?style=flat-square" alt="APK de 4 MB">
@@ -104,7 +104,7 @@ Ajustes se abre con la tuerca de arriba a la izquierda del inicio: *Generales* s
 | Tamaño de la ventana | En 2x va centrada en el hueco libre y el dock pasa a fichas micro. | 0,5x, 1x, 2x |
 | Sonido de la ventana | Que suene la MiniTV. | Sí / No |
 | Nombre del canal y la fuente | El número de canal sobre la imagen. | Sí / No |
-| Canales de la antena | Si la TV no deja leer su lista, Stark TV la busca. En TVs MediaTek salen con el número y el orden de su app de TV. Radios opcionales. | Buscar |
+| Canales de la antena | Si la TV no deja leer su lista, Stark TV la busca: antes le pregunta un instante a la app de TV de la tele dónde está, para no tener que adivinar. En TVs MediaTek salen con el número y el orden de su app de TV. Radios opcionales. | Buscar |
 
 En la MiniTV: **CH+ / CH−** cambian de canal, **OK** abre la app de TV de la tele en el mismo canal y **OK mantenido** abre su menú (fuente, posición, sonido).
 
@@ -157,12 +157,13 @@ Límites del chip (probado en la Thomson): la antena y una app de vídeo van a l
 | Opción | Qué hace | Valores |
 |---|---|---|
 | Permisos avanzados (adb) | Conecta Stark TV con la depuración de la propia TV (la TV pide aceptarlo una vez). Lo necesitan las opciones marcadas con ⚙. | — |
-| Launcher por defecto | Stark TV como inicio de la TV (si se apaga, vuelve el de Google). | Sí / No |
+| Launcher por defecto | Stark TV como inicio de la TV. En Android TV clásico y en Google TV: si hace falta, desactiva por adb el inicio propio de la TV (y lo devuelve al apagarlo). | Sí / No |
 | Apps que sobran ⚙ | Las apps de esa TV que se pueden desactivar, explicadas en español. Encendido = funcionando. Se vuelven a desactivar solas al encender y cuando Play las actualiza. | Lista e interruptores |
 | Monitor de recursos | Una línea arriba, encima de cualquier app, con CPU, memoria y disco, cada 3 s (la CPU, con ⚙). | Sí / No |
 | Dormir Play Store hasta que la abras ⚙ | Para Play Store (~70 MB) al encender y a los minutos de volver al inicio. | No, 1, 5 o 10 min |
 | Liberar caché y memoria ⚙ | Borra la caché de todas las apps y cierra las de segundo plano, y dice cuánto ha liberado. Para cuando la TV va lenta. | — |
 | Copia de ajustes | Guarda o recupera todos los ajustes de Stark TV. | — |
+| Buscar actualización | Mira la última versión en GitHub; con adb conectado se instala sola (sin el aviso de Android). | — |
 
 <details><summary>Ver la pestaña Sistema</summary><img src="docs/capturas/ajustes-sistema.jpg" alt="Pestaña Sistema de Ajustes, con el monitor de recursos arriba" width="760"></details>
 
@@ -196,7 +197,7 @@ Límites del chip (probado en la Thomson): la antena y una app de vídeo van a l
 Descarga el APK de la [última versión](../../releases/latest) y, con la TV en la misma red y la depuración activada:
 
 ```bash
-adb install -r StarkTV-0.9.41.apk
+adb install -r StarkTV-0.9.42.apk
 adb shell appops set com.chaska.inicio MANAGE_EXTERNAL_STORAGE allow
 adb shell pm grant com.chaska.inicio android.permission.WRITE_SECURE_SETTINGS
 adb shell cmd package set-home-activity com.chaska.inicio/.MainActivity

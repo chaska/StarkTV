@@ -156,8 +156,10 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
             idCanal = prefs.getLong("tv_id", 1533)
             // Con la lista propia (Ajustes › Canales de la antena), siempre un canal de ella.
             propios().let { l -> if (l.isNotEmpty() && idCanal !in l) idCanal = l.first() }
-            // El mismo canal que se vio la última vez en la TV (Live TV), si sabemos en qué fila está.
+            // El mismo canal que se vio la última vez en la TV (Live TV), si sabemos en qué fila está
+            // (MediaTek), o directamente si el fabricante lo deja mirar en sus Ajustes (TCL).
             filaDe(prefs.getInt(K_ULTIMO, -1))?.let { idCanal = it }
+            ultimoCanalDelFabricante()?.let { idCanal = it }
             probarSinCanal()
         } else {
             estado.text = "Esta TV no deja ver el sintonizador"
@@ -165,10 +167,17 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
     }
 
     private fun prepararSintonizadores(tim: TvInputManager?) {
-        // Solo los sintonizadores de la TV: otras apps (canales FAST, VLC…) también se anuncian como «sintonizador».
-        // Los del fabricante primero (en MediaTek, com.mediatek.tvinput); en otras marcas, todos.
-        val todos = tim?.tvInputList?.filter { it.type == TvInputInfo.TYPE_TUNER && !it.isPassthroughInput }?.map { it.id } ?: emptyList()
-        sintonizadores = todos.filter { it.startsWith("com.mediatek.tvinput/") }.ifEmpty { todos }.sorted()
+        // Solo los sintonizadores DE VERDAD: alguna app (Google Play Películas, para sus vídeos de muestra)
+        // también se anuncia como «sintonizador» sin serlo. Un sintonizador de hardware real acaba en «/HWn»
+        // (visto en MediaTek y en TCL); si ninguno sigue esa forma, se prueba con todos (27/11, TCL Smart TV Pro:
+        // sin este filtro, por orden alfabético ganaba el de Google y nunca se llegaba al de la TV).
+        // Red de seguridad para cuando ninguno acaba en «/HWn» (no debería pasar, pero por si acaso):
+        // nunca los de apps que se sabe que no son un sintonizador de verdad.
+        val NO_SON = setOf("com.google.android.videos")
+        val todos = tim?.tvInputList?.filter { it.type == TvInputInfo.TYPE_TUNER && !it.isPassthroughInput }
+            ?.map { it.id }?.filterNot { id -> NO_SON.any { id.startsWith("$it/") } } ?: emptyList()
+        val deHardware = todos.filter { it.matches(Regex(".*/HW\\d+$")) }
+        sintonizadores = deHardware.ifEmpty { todos }.sorted()
         // El principal primero (HW0).
         entrada = sintonizadores.firstOrNull { it.endsWith("HW0") } ?: sintonizadores.firstOrNull()
     }
@@ -336,6 +345,14 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         f to n
     }.toMap()
 
+    /**
+     * La fila que la propia TV dice que está viendo ahora en su app de TV, para la MiniTV y el PAP la sigan sin
+     * tener que pasar canal a canal buscándola. En TCL vive en Ajustes del sistema, de lectura libre (sin adb):
+     * `recent_play_channel_id` ya es la misma fila que usa Stark TV para sintonizar (comprobado el 27/11).
+     * Se amplía con la clave de cada fabricante que se vaya probando.
+     */
+    private fun ultimoCanalDelFabricante() = ultimoCanalDelFabricante(context)
+
     /** La fila del canal [numero]; si un canal de TV y una radio lo comparten (número mal leído), gana el de TV. */
     private fun filaDe(numero: Int): Long? {
         if (numero < 0) return null
@@ -354,19 +371,20 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
     }
 
     /** Busca los canales; [avanza] (fila probada, canales encontrados) y [fin] con la lista nueva (ya guardada). */
-    fun buscarCanales(avanza: (Long, Int) -> Unit, fin: (List<Long>) -> Unit) {
+    fun buscarCanales(anclaForzada: Long? = null, avanza: (Long, Int) -> Unit, fin: (List<Long>) -> Unit) {
         val tim = context.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
         prepararSintonizadores(tim)
         val hw = entrada ?: return fin(emptyList())
         removeCallbacks(siguiente); removeCallbacks(vigia)
         sonido(false)
         buscando = true
-        val inicio = prefs.getLong("tv_id", 1533).coerceAtLeast(1)
-        val vistos = sortedSetOf<Long>()
-        val radiosVistas = sortedSetOf<Long>()
         // Se parte de los números que ya se sabían (de Live TV o de otra búsqueda): una búsqueda no los olvida.
         val nums = leerNumeros(prefs)
         try { context.registerReceiver(avisoNumero, android.content.IntentFilter(AVISO_MTK), Context.RECEIVER_EXPORTED) } catch (e: Exception) { }
+
+        fun empezar(inicio: Long) {
+        val vistos = sortedSetOf<Long>()
+        val radiosVistas = sortedSetOf<Long>()
         var subiendo = true
         var fallos = 0
         fun cerrar() {
@@ -444,6 +462,34 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
             try { tv.tune(hw, TvContract.buildChannelUri(id)) } catch (e: Exception) { terminarSonda(-1) }
         }
         probar(inicio)
+        }
+
+        // Antes de la búsqueda fina: encontrar DÓNDE empiezan los canales en esta TV, probando pocas filas muy
+        // espaciadas (de la 1 a la 8000, con poca espera cada una). Así no hace falta saber de antemano el rango
+        // de cada fabricante (1533 en la Thomson, ~500 en una TCL…): el número que ya funcionó la vez anterior en
+        // esta TV se prueba el primero. Al encontrar la primera fila con imagen (o solo sonido: una radio también
+        // vale como ancla), ahí empieza la búsqueda fina de siempre.
+        if (anclaForzada != null) { empezar(anclaForzada); return }
+        val guardado = prefs.getLong("tv_id", -1).takeIf { it > 0 }
+        val candidatos = (listOfNotNull(guardado) + listOf(1L, 50L, 150L, 300L, 500L, 800L, 1200L, 1533L, 2000L, 3000L, 5000L, 8000L)).distinct()
+        var i = 0
+        fun probarAncla() {
+            if (!buscando) return
+            if (i >= candidatos.size) {
+                buscando = false
+                try { context.unregisterReceiver(avisoNumero) } catch (e: Exception) { }
+                estado.text = "No se encuentra ningún canal en esta TV"
+                return fin(emptyList())
+            }
+            val id = candidatos[i]
+            estado.visibility = View.VISIBLE
+            estado.text = "Buscando dónde empiezan los canales ($id)…"
+            avanza(id, 0)
+            sonda = { r -> if (r >= 0) empezar(id) else { i++; probarAncla() } }
+            postDelayed(sondaTarde, ESPERA_ANCLA)
+            try { tv.tune(hw, TvContract.buildChannelUri(id)) } catch (e: Exception) { terminarSonda(-1) }
+        }
+        probarAncla()
     }
 
     fun pararBusqueda() {
@@ -463,6 +509,48 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
 
     companion object {
         const val TAG = "InicioTV"
+
+        /** Apps de TV en directo de fabricante conocidas, para abrir un canal o preguntarle dónde está. */
+        val APPS_TV = listOf("com.mediatek.wwtv.tvcenter", "com.google.android.tv", "com.android.tv", "com.tcl.tv")
+
+        /**
+         * La fila que la propia TV dice que está viendo ahora en su app de TV (ver [preguntarAFabricante]). En
+         * TCL vive en Ajustes del sistema, de lectura libre (sin adb): `recent_play_channel_id` ya es la misma
+         * fila que usa Stark TV para sintonizar (comprobado el 27/11). Se amplía con la clave de cada fabricante.
+         */
+        private val CLAVES_ULTIMO_CANAL = listOf("recent_play_channel_id")
+
+        fun ultimoCanalDelFabricante(ctx: Context): Long? {
+            val cr = ctx.contentResolver
+            for (clave in CLAVES_ULTIMO_CANAL) {
+                val v = try { android.provider.Settings.System.getLong(cr, clave) } catch (e: Exception) { continue }
+                if (v > 0) return v
+            }
+            return null
+        }
+
+        /**
+         * En vez de adivinar por dónde empiezan los canales, se le pregunta a la app de TV de la tele: se abre
+         * un instante, se lee dónde se ha quedado (el aviso del fabricante de arriba) y se vuelve al inicio.
+         * [listo] trae esa fila, o null si no hay ninguna app conocida o no ha dado ninguna pista (entonces la
+         * búsqueda cae en probar unas pocas filas sueltas, en [buscarCanales]).
+         */
+        fun preguntarAFabricante(ctx: Context, listo: (Long?) -> Unit) {
+            val intent = APPS_TV.firstNotNullOfOrNull { Apps.intentDe(ctx, it) }
+            if (intent == null) { listo(null); return }
+            try { ctx.startActivity(intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            catch (e: Exception) { Log.w(TAG, "preguntar a la app de TV: $e"); listo(null); return }
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                val fila = ultimoCanalDelFabricante(ctx)
+                // Traer de vuelta nuestra propia tarea (no relanzar con un intent: con «clearTaskOnLaunch»
+                // reiniciaba la pantalla de Ajustes y se perdía el diálogo de «Canales de la antena», 27/11).
+                try {
+                    (ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager)
+                        .appTasks.firstOrNull()?.moveToFront()
+                } catch (e: Exception) { Log.w(TAG, "volver tras preguntar: $e") }
+                listo(fila)
+            }, 1800)
+        }
 
         /**
          * Entrada de la TV para la fuente [fuente] (1-3 HDMI, 4 AV). Solo los puertos: los aparatos que se anuncian
@@ -529,6 +617,8 @@ class VentanaTv(ctx: Context, sel: Int, private val prefs: SharedPreferences) : 
         }
         private const val MAX_FALLOS = 15
         private const val ESPERA_SONDA = 4000L
+        // Más corta que ESPERA_SONDA: aquí solo se busca una fila cualquiera con imagen, no todas.
+        private const val ESPERA_ANCLA = 2000L
         private const val MAX_RECUPERAR = 2
         /** Apagado (02/11): volver a sintonizar al perder la imagen le quitaba el vídeo a la app de la otra parte del PAP. */
         private const val RECUPERAR = false
